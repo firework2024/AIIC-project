@@ -5,3 +5,4 @@ requests
 reportlab
 PyPDF2
 gunicorn
+python-pptx

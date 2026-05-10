@@ -1,5 +1,32 @@
 from datetime import datetime
 
+GENERIC_KNOWLEDGE_TITLES = {
+    "题目相关核心概念",
+    "结构化作答方法",
+    "岗位相关核心概念",
+}
+
+MAX_STUDY_CARDS_PER_INTERVIEW = 6
+
+
+def normalize_card_key(title):
+    key = str(title or "").lower().strip()
+    for left, right in (("（", "）"), ("(", ")")):
+        while left in key and right in key and key.index(left) < key.index(right):
+            start = key.index(left)
+            end = key.index(right, start)
+            key = key[:start] + key[end + 1:]
+    for token in (" ", "　", "-", "_", "：", ":", "，", ",", "。", "、", "与", "和", "的"):
+        key = key.replace(token, "")
+    aliases = {
+        "港交所对返利计提会计处理指引": "收入确认返利计提",
+        "hkfrs15收入确认": "收入确认返利计提",
+        "preipo对赌条款": "对赌条款回购风险",
+    }
+    for old, new in aliases.items():
+        key = key.replace(old, new)
+    return key
+
 
 def calculate_final_score(evaluation_history):
     scores = [
@@ -28,18 +55,41 @@ def collect_knowledge_gaps(evaluation_history):
     gaps = []
     cards = []
 
+    def add_fallback_card(question_index, title):
+        if title in GENERIC_KNOWLEDGE_TITLES:
+            return
+        if len(cards) >= MAX_STUDY_CARDS_PER_INTERVIEW:
+            return
+        key = normalize_card_key(title)
+        if key in seen_cards:
+            return
+        seen_cards.add(key)
+        cards.append({
+            "question_index": question_index,
+            "title": title,
+            "summary": "这次面试暴露出该知识点掌握不稳定，需要补充定义、适用条件、典型场景和常见面试问法。",
+            "why_it_matters": "该知识点会影响金融面试中的专业判断、业务分析和表达可信度。",
+            "review_prompt": f"请用 2 分钟解释“{title}”，并结合一个金融业务或岗位场景举例。",
+        })
+
     for index, item in enumerate(evaluation_history, start=1):
+        item_gaps = []
         for gap in item.get("knowledge_gaps", []) or []:
             gap = str(gap).strip()
-            if gap and gap not in seen_gaps:
+            if not gap or gap in GENERIC_KNOWLEDGE_TITLES:
+                continue
+            item_gaps.append(gap)
+            if gap not in seen_gaps:
                 seen_gaps.add(gap)
                 gaps.append({"question_index": index, "title": gap})
 
         for card in item.get("study_cards", []) or []:
             title = str(card.get("title", "")).strip()
-            if not title:
+            if not title or title in GENERIC_KNOWLEDGE_TITLES:
                 continue
-            key = title.lower()
+            if len(cards) >= MAX_STUDY_CARDS_PER_INTERVIEW:
+                continue
+            key = normalize_card_key(title)
             if key in seen_cards:
                 continue
             seen_cards.add(key)
@@ -50,6 +100,9 @@ def collect_knowledge_gaps(evaluation_history):
                 "why_it_matters": str(card.get("why_it_matters", "")).strip(),
                 "review_prompt": str(card.get("review_prompt", "")).strip(),
             })
+
+        for gap in item_gaps:
+            add_fallback_card(index, gap)
 
     return gaps, cards
 

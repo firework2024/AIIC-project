@@ -6,7 +6,7 @@ import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { fetchTopics, startInterview } from "../services/api";
-import { BarChart3, BriefcaseBusiness, Building2, Github, Loader2, Shuffle, Upload, UserRound } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, Building2, FileText, Loader2, Shuffle, Timer, Upload, UserRound, Zap } from "lucide-react";
 
 const ROLE_OPTIONS = [
     { label: "投资银行", value: "投资银行" },
@@ -31,9 +31,11 @@ export default function Setup() {
         role: "投资银行",
         topic: "",
         confidence: 5,
-        github: "",
         resume: null,
+        workSample: null,
         jdText: "",
+        timeLimitMinutes: 20,
+        pressureIndex: 5,
     });
 
     useEffect(() => {
@@ -45,7 +47,7 @@ export default function Setup() {
     const handleStart = async () => {
         if (!formData.name) return setError("请输入姓名");
         if (formData.mode !== "project" && !formData.topic) return setError("请选择金融业务主题");
-        if (formData.mode === "project" && !formData.github) return setError("请输入 GitHub 仓库 URL");
+        if (formData.mode === "project" && !formData.workSample) return setError("作品答辩模式需要上传作品文件");
 
         if (formData.mode === "normal" && !formData.resume) return setError("简历深挖模式需要先上传简历");
         setLoading(true);
@@ -57,12 +59,14 @@ export default function Setup() {
             data.append("mode", formData.mode);
             data.append("confidence", formData.confidence);
             data.append("jd_text", formData.jdText);
+            data.append("time_limit_minutes", formData.timeLimitMinutes);
+            data.append("pressure_index", formData.pressureIndex);
+            data.append("role", formData.role);
+            data.append("topic", formData.topic || "作品答辩");
 
             if (formData.mode === "project") {
-                data.append("github_url", formData.github);
+                data.append("work_sample", formData.workSample);
             } else {
-                data.append("role", formData.role);
-                data.append("topic", formData.topic);
                 if (formData.resume) data.append("resume", formData.resume);
             }
 
@@ -71,9 +75,13 @@ export default function Setup() {
             sessionStorage.setItem("session_id", res.data.session_id);
             sessionStorage.setItem("current_question", res.data.question);
             sessionStorage.setItem("candidate_name", formData.name);
-            sessionStorage.setItem("topic", formData.topic || "Project");
+            sessionStorage.setItem("topic", formData.topic || "作品答辩");
             sessionStorage.setItem("target_role", formData.role);
             sessionStorage.setItem("interview_mode", formData.mode);
+            sessionStorage.setItem("deadline_at", res.data.deadline_at);
+            sessionStorage.setItem("time_limit_minutes", String(res.data.time_limit_minutes || formData.timeLimitMinutes));
+            sessionStorage.setItem("pressure_index", String(res.data.pressure_index || formData.pressureIndex));
+            sessionStorage.setItem("question_started_at", res.data.question_started_at);
 
             navigate(`/interview/${res.data.session_id}`);
         } catch (err) {
@@ -147,8 +155,8 @@ export default function Setup() {
                                 : "bg-slate-900/50 border-slate-700 text-slate-400 hover:bg-slate-800"
                                 }`}
                         >
-                            <Github className="w-6 h-6" />
-                            <span className="font-medium">项目复盘</span>
+                            <FileText className="w-6 h-6" />
+                            <span className="font-medium">作品答辩</span>
                         </button>
                     </div>
 
@@ -205,13 +213,50 @@ export default function Setup() {
                     )}
 
                     {formData.mode === "project" && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                            <Input
-                                label="GitHub 仓库 URL"
-                                placeholder="https://github.com/username/repo"
-                                value={formData.github}
-                                onChange={(e) => setFormData({ ...formData, github: e.target.value })}
-                            />
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <Select
+                                    label="目标岗位方向"
+                                    value={formData.role}
+                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                    options={ROLE_OPTIONS}
+                                />
+                                <Select
+                                    label="业务主题"
+                                    value={formData.topic}
+                                    onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                                    options={[
+                                        { label: "作品答辩 / 行研 / 投资分析", value: "" },
+                                        ...getTopicOptions(),
+                                    ]}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300 ml-1">岗位 JD（可选）</label>
+                                <textarea
+                                    value={formData.jdText}
+                                    onChange={(e) => setFormData({ ...formData, jdText: e.target.value })}
+                                    className="w-full min-h-[140px] px-4 py-3 bg-slate-900/50 border border-slate-700/50 rounded-xl focus:border-primary/50 focus:ring-2 focus:ring-primary/20 placeholder:text-slate-600 text-slate-200 transition-all outline-none resize-y"
+                                    placeholder="可粘贴目标岗位 JD，系统会从岗位视角追问你的作品。"
+                                />
+                            </div>
+
+                            <div className="p-6 border-2 border-dashed border-accent/50 rounded-xl hover:border-accent transition-colors text-center cursor-pointer relative group bg-accent/5">
+                                <input
+                                    type="file"
+                                    accept=".pdf,.txt,.pptx"
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                    onChange={(e) => setFormData({ ...formData, workSample: e.target.files[0] })}
+                                />
+                                <div className="flex flex-col items-center gap-2 text-slate-300 group-hover:text-white">
+                                    <Upload className="w-8 h-8 text-accent" />
+                                    <span className="text-sm font-medium">
+                                        {formData.workSample ? formData.workSample.name : "上传作品：行研报告 / PPT / 投资备忘录"}
+                                    </span>
+                                    <span className="text-xs text-slate-500">支持 PDF、TXT、PPTX；系统会基于作品内容提问</span>
+                                </div>
+                            </div>
                         </motion.div>
                     )}
 
@@ -228,6 +273,40 @@ export default function Setup() {
                             onChange={(e) => setFormData({ ...formData, confidence: parseInt(e.target.value, 10) })}
                             className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-primary-hover"
                         />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/30 p-4">
+                            <div className="flex justify-between text-sm text-slate-400">
+                                <label className="inline-flex items-center gap-2"><Timer className="w-4 h-4" />面试限时</label>
+                                <span>{formData.timeLimitMinutes} 分钟</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="5"
+                                max="60"
+                                step="5"
+                                value={formData.timeLimitMinutes}
+                                onChange={(e) => setFormData({ ...formData, timeLimitMinutes: parseInt(e.target.value, 10) })}
+                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                            />
+                        </div>
+
+                        <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/30 p-4">
+                            <div className="flex justify-between text-sm text-slate-400">
+                                <label className="inline-flex items-center gap-2"><Zap className="w-4 h-4" />压力面指数</label>
+                                <span>{formData.pressureIndex}/10</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="1"
+                                max="10"
+                                value={formData.pressureIndex}
+                                onChange={(e) => setFormData({ ...formData, pressureIndex: parseInt(e.target.value, 10) })}
+                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-red-400"
+                            />
+                            <p className="text-xs text-slate-500">指数越高，问题更犀利，追问更密集，更可能出现强硬质疑。</p>
+                        </div>
                     </div>
 
                     {formData.mode === "business" && (
@@ -253,6 +332,15 @@ export default function Setup() {
                             <BarChart3 className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                             <p>
                                 简历深挖共 8 题，只围绕你上传的简历连续追问，重点拷打实习、项目、比赛、研究和行为证据，不会切到别的题型。
+                            </p>
+                        </div>
+                    )}
+
+                    {formData.mode === "project" && (
+                        <div className="flex items-start gap-3 rounded-xl border border-accent/20 bg-accent/10 p-4 text-sm text-slate-300">
+                            <FileText className="w-5 h-5 text-accent mt-0.5 shrink-0" />
+                            <p>
+                                作品答辩会解析你上传的行研报告、PPT 或投资分析材料，围绕假设、证据链、数据质量、风险和结论稳健性提问。
                             </p>
                         </div>
                     )}

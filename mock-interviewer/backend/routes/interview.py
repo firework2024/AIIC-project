@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, send_file
 import uuid
 import io
+from datetime import datetime, timedelta, timezone
 from flask_cors import cross_origin
 
 from reportlab.lib.pagesizes import A4
@@ -19,16 +20,108 @@ from core.report_generator import (
 from config.prompts import CLARIFICATION_PROMPT, LANGUAGE_RULES
 from utils.llm_client import call_llm
 from utils.resume_validator import is_valid_resume
-from utils.github_fetcher import (
-    is_valid_github_url,
-    fetch_readme,
-    extract_repo_name
-)
+from utils.work_sample_parser import extract_work_sample
 
 interview_bp = Blueprint("interview", __name__)
 
 INTERVIEW_SESSIONS = {}
 MAX_QUESTIONS = 8
+
+
+def utc_now():
+    return datetime.now(timezone.utc)
+
+
+def iso(dt):
+    return dt.isoformat().replace("+00:00", "Z") if dt else None
+
+
+def parse_int(value, default, low, high):
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        number = default
+    return max(low, min(high, number))
+
+
+def build_zero_evaluation(reason):
+    return {
+        "score": 0,
+        "technical_accuracy": 0,
+        "communication_clarity": 0,
+        "problem_solving": 0,
+        "business_judgment": 0,
+        "jd_alignment": 0,
+        "strengths": "未作答。",
+        "weaknesses": reason,
+        "knowledge_gaps": [],
+        "study_cards": [],
+        "depth_assessment": "none",
+    }
+
+
+def fill_unanswered_questions(session, reason="限时结束，未回答题目计为 0 分。"):
+    while session["question_count"] < MAX_QUESTIONS:
+        question = session.get("current_question") or f"第 {session['question_count'] + 1} 题未生成，因限时结束计为未作答。"
+        session["qa_history"].append({
+            "question": question,
+            "answer": "未作答（限时结束）",
+            "clarifications": session.get("current_clarifications", []),
+        })
+        session["evaluation_history"].append(build_zero_evaluation(reason))
+        session["question_count"] += 1
+        session["current_question"] = None
+        session["current_clarifications"] = []
+
+
+def finish_interview(session, timeout=False):
+    if timeout:
+        fill_unanswered_questions(session)
+
+    final_score = calculate_final_score(session["evaluation_history"])
+    estimated_competence = final_score
+    knowledge_gaps, study_cards = collect_knowledge_gaps(session["evaluation_history"])
+    try:
+        report = generate_final_report(
+            session["role"],
+            session["topic"],
+            session["confidence"],
+            estimated_competence,
+            session["qa_history"],
+            session["name"],
+            session.get("jd_text", ""),
+            session.get("business_context", ""),
+            session["evaluation_history"],
+        )
+        if not report or report.startswith("LLM Error:"):
+            report = build_fallback_report(session, final_score)
+    except Exception:
+        report = build_fallback_report(session, final_score)
+
+    session["finished"] = True
+    return jsonify({
+        "done": True,
+        "timeout": timeout,
+        "report": report,
+        "final_score": final_score,
+        "qa_history": session["qa_history"],
+        "evaluation_history": session["evaluation_history"],
+        "knowledge_gaps": knowledge_gaps,
+        "study_cards": study_cards,
+        "metadata": {
+            "name": session["name"],
+            "role": session["role"],
+            "topic": session["topic"],
+            "mode": session["interview_mode"],
+            "time_limit_minutes": session.get("time_limit_minutes"),
+            "pressure_index": session.get("pressure_index", 5),
+        }
+    }), 200
+
+
+def is_timed_out(session):
+    deadline = session.get("deadline_at")
+    return bool(deadline and utc_now() >= deadline)
 
 
 def build_fallback_report(session, estimated_competence):
@@ -82,14 +175,16 @@ def start_interview():
     name = form.get("name")
     interview_mode = form.get("mode", "normal")
     confidence = int(form.get("confidence", 5))
+    time_limit_minutes = parse_int(form.get("time_limit_minutes"), 20, 5, 120)
+    pressure_index = parse_int(form.get("pressure_index"), 5, 1, 10)
     jd_text = form.get("jd_text", "").strip()
 
     if not name:
         return jsonify({"error": "请填写姓名"}), 400
 
     resume_text = ""
-    project_readme = ""
-    project_name = ""
+    work_sample_text = ""
+    work_sample_name = ""
 
     if interview_mode in ("normal", "business", "mixed"):
         role = form.get("role")
@@ -108,19 +203,16 @@ def start_interview():
             resume_text = res
 
     elif interview_mode == "project":
-        github_url = form.get("github_url")
-
-        if not github_url or not is_valid_github_url(github_url):
-            return jsonify({"error": "请输入有效的 GitHub URL"}), 400
-
-        project_readme = fetch_readme(github_url)
-        if not project_readme:
-            project_readme = "README 不可用。请围绕项目的业务价值、数据、方法和风险提出高层问题。"
-
-        project_name = extract_repo_name(github_url)
-        role = "金融项目"
-        topic = "项目复盘"
-        confidence = 0
+        role = form.get("role") or "金融作品"
+        topic = form.get("topic") or "作品答辩"
+        work_sample = request.files.get("work_sample")
+        if not work_sample:
+            return jsonify({"error": "作品答辩模式需要上传作品文件"}), 400
+        ok, res = extract_work_sample(work_sample)
+        if not ok:
+            return jsonify({"error": res}), 400
+        work_sample_text = res
+        work_sample_name = work_sample.filename or "候选人作品"
 
     else:
         return jsonify({"error": "无效的面试模式"}), 400
@@ -141,16 +233,22 @@ def start_interview():
         "role": role,
         "topic": topic,
         "confidence": confidence,
+        "time_limit_minutes": time_limit_minutes,
+        "pressure_index": pressure_index,
+        "started_at": utc_now(),
+        "deadline_at": utc_now() + timedelta(minutes=time_limit_minutes),
+        "current_question_started_at": utc_now(),
         "jd_text": jd_text,
         "business_context": business_context,
         "resume_text": resume_text,
-        "project_readme": project_readme,
-        "project_name": project_name,
+        "work_sample_text": work_sample_text,
+        "work_sample_name": work_sample_name,
         "qa_history": [],
         "evaluation_history": [],
         "question_count": 0,
         "current_question": None,
-        "current_clarifications": []
+        "current_clarifications": [],
+        "finished": False,
     }
 
     first_question = generate_next_question(
@@ -161,18 +259,24 @@ def start_interview():
         qa_history=[],
         is_fresher=True,
         interview_mode=interview_mode,
-        project_readme=project_readme,
-        project_name=project_name,
+        work_sample_text=work_sample_text,
+        work_sample_name=work_sample_name,
         resume_text=resume_text,
         jd_text=jd_text,
-        business_context=business_context
+        business_context=business_context,
+        pressure_index=pressure_index,
     )
 
     INTERVIEW_SESSIONS[session_id]["current_question"] = first_question
+    INTERVIEW_SESSIONS[session_id]["current_question_started_at"] = utc_now()
 
     return jsonify({
         "session_id": session_id,
-        "question": first_question
+        "question": first_question,
+        "deadline_at": iso(INTERVIEW_SESSIONS[session_id]["deadline_at"]),
+        "time_limit_minutes": time_limit_minutes,
+        "pressure_index": pressure_index,
+        "question_started_at": iso(INTERVIEW_SESSIONS[session_id]["current_question_started_at"]),
     }), 200
 
 
@@ -208,6 +312,10 @@ def clarify_question():
     session = INTERVIEW_SESSIONS.get(session_id)
     if not session:
         return jsonify({"error": "面试会话已失效，请重新开始。"}), 400
+    if session.get("finished"):
+        return jsonify({"error": "面试已结束，请查看报告或重新开始。"}), 400
+    if is_timed_out(session):
+        return jsonify({"error": "面试时间已结束，不能继续澄清。"}), 400
 
     prompt = CLARIFICATION_PROMPT.format(
         language_rules=LANGUAGE_RULES,
@@ -255,6 +363,10 @@ def submit_answer():
     session = INTERVIEW_SESSIONS.get(session_id)
     if not session:
         return jsonify({"error": "面试会话已失效，请重新开始。"}), 400
+    if session.get("finished"):
+        return jsonify({"error": "面试已结束，请查看报告或重新开始。"}), 400
+    if is_timed_out(session) or data.get("timeout"):
+        return finish_interview(session, timeout=True)
 
     question = session["current_question"]
     clarifications = session.get("current_clarifications", [])
@@ -287,40 +399,7 @@ def submit_answer():
     )
 
     if session["question_count"] >= MAX_QUESTIONS:
-        final_score = calculate_final_score(session["evaluation_history"])
-        estimated_competence = competence.get("estimated_competence", final_score)
-        knowledge_gaps, study_cards = collect_knowledge_gaps(session["evaluation_history"])
-        try:
-            report = generate_final_report(
-                session["role"],
-                session["topic"],
-                session["confidence"],
-                estimated_competence,
-                session["qa_history"],
-                session["name"],
-                session.get("jd_text", ""),
-                session.get("business_context", ""),
-                session["evaluation_history"],
-            )
-            if not report or report.startswith("LLM Error:"):
-                report = build_fallback_report(session, final_score)
-        except Exception:
-            report = build_fallback_report(session, final_score)
-        return jsonify({
-            "done": True, 
-            "report": report,
-            "final_score": final_score,
-            "qa_history": session["qa_history"],
-            "evaluation_history": session["evaluation_history"],
-            "knowledge_gaps": knowledge_gaps,
-            "study_cards": study_cards,
-            "metadata": {
-                "name": session["name"],
-                "role": session["role"],
-                "topic": session["topic"],
-                "mode": session["interview_mode"],
-            }
-        }), 200
+        return finish_interview(session, timeout=False)
 
     next_question = generate_next_question(
         role=session["role"],
@@ -330,19 +409,24 @@ def submit_answer():
         qa_history=session["qa_history"],
         is_fresher=True,
         interview_mode=session["interview_mode"],
-        project_readme=session["project_readme"],
-        project_name=session["project_name"],
+        work_sample_text=session.get("work_sample_text", ""),
+        work_sample_name=session.get("work_sample_name", ""),
         resume_text=session["resume_text"],
         jd_text=session.get("jd_text", ""),
-        business_context=session.get("business_context", "")
+        business_context=session.get("business_context", ""),
+        pressure_index=session.get("pressure_index", 5),
     )
 
     session["current_question"] = next_question
     session["current_clarifications"] = []
+    session["current_question_started_at"] = utc_now()
 
     return jsonify({
         "done": False,
-        "next_question": next_question
+        "next_question": next_question,
+        "deadline_at": iso(session.get("deadline_at")),
+        "question_started_at": iso(session.get("current_question_started_at")),
+        "pressure_index": session.get("pressure_index", 5),
     }), 200
 
 # ======================================================

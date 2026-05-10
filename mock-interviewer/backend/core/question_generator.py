@@ -4,7 +4,7 @@ from config.prompts import (
     LANGUAGE_RULES,
     QUESTION_GENERATION_PROMPT,
     RESUME_QUESTION_PROMPT,
-    PROJECT_INTERVIEW_PROMPT,
+    WORK_SAMPLE_INTERVIEW_PROMPT,
     BUSINESS_CONTEXT_PROMPT,
     BUSINESS_SIMULATION_PROMPT,
     MIXED_INTERVIEW_PROMPT,
@@ -107,11 +107,12 @@ def generate_next_question(
     qa_history: list,
     is_fresher: bool,
     interview_mode: str = "normal",
-    project_readme: str = "",
-    project_name: str = "",
+    work_sample_text: str = "",
+    work_sample_name: str = "",
     resume_text: str = "",
     jd_text: str = "",
     business_context: str = "",
+    pressure_index: int = 5,
 ) -> str:
     question_number = len(qa_history) + 1
 
@@ -130,13 +131,17 @@ def generate_next_question(
 
     safe_jd = (jd_text or "未提供JD。请根据所选岗位方向和业务主题出题。")[:5000]
 
-    if interview_mode == "project" and project_readme:
-        prompt = PROJECT_INTERVIEW_PROMPT.format(
+    if interview_mode == "project" and work_sample_text:
+        prompt = WORK_SAMPLE_INTERVIEW_PROMPT.format(
             language_rules=LANGUAGE_RULES,
-            project_name=project_name,
-            readme=project_readme,
+            work_sample_name=work_sample_name or "候选人作品",
+            role=role,
+            topic=topic,
+            pressure_index=pressure_index,
+            work_sample_text=work_sample_text[:9000],
+            history=history,
         )
-        return finalize_question(call_llm(prompt), role, topic, "项目复盘")
+        return finalize_question(call_llm(prompt), role, topic, "作品答辩")
 
     if interview_mode == "business":
         prompt = BUSINESS_SIMULATION_PROMPT.format(
@@ -147,6 +152,7 @@ def generate_next_question(
             jd_text=safe_jd,
             business_context=business_context or "暂无业务模拟上下文。",
             confidence=confidence,
+            pressure_index=pressure_index,
             phase=phase,
             competence_summary=competence_summary,
             history=history,
@@ -177,6 +183,7 @@ def generate_next_question(
             jd_text=safe_jd,
             business_context=business_context or "暂无业务模拟上下文。",
             confidence=confidence,
+            pressure_index=pressure_index,
             phase=phase,
             competence_summary=competence_summary,
             history=history,
@@ -215,6 +222,7 @@ def generate_next_question(
         candidate_type="应届/初级候选人" if is_fresher else "有经验候选人",
         phase=phase,
         confidence=confidence,
+        pressure_index=pressure_index,
         competence_summary=competence_summary,
         jd_text=safe_jd,
         history=history,
