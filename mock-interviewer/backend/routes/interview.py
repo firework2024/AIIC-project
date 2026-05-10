@@ -16,6 +16,8 @@ from core.report_generator import (
     collect_knowledge_gaps,
     generate_final_report,
 )
+from config.prompts import CLARIFICATION_PROMPT, LANGUAGE_RULES
+from utils.llm_client import call_llm
 from utils.resume_validator import is_valid_resume
 from utils.github_fetcher import (
     is_valid_github_url,
@@ -147,7 +149,8 @@ def start_interview():
         "qa_history": [],
         "evaluation_history": [],
         "question_count": 0,
-        "current_question": None
+        "current_question": None,
+        "current_clarifications": []
     }
 
     first_question = generate_next_question(
@@ -173,6 +176,66 @@ def start_interview():
     }), 200
 
 
+def format_clarification_history(clarifications):
+    if not clarifications:
+        return "无。"
+    lines = []
+    for i, item in enumerate(clarifications, start=1):
+        lines.append(f"候选人澄清问题{i}：{safe_prompt_text(item.get('request', ''))}")
+        lines.append(f"面试官澄清回复{i}：{safe_prompt_text(item.get('response', ''))}")
+    return "\n".join(lines)
+
+
+def safe_prompt_text(text):
+    return str(text or "").replace("<", "＜").replace(">", "＞")
+
+
+@interview_bp.route("/clarify", methods=["POST"])
+def clarify_question():
+    data = request.get_json(silent=True)
+
+    if not data:
+        return jsonify({"error": "请求格式无效"}), 400
+
+    session_id = data.get("session_id")
+    clarification_request = data.get("clarification", "").strip()
+
+    if not session_id:
+        return jsonify({"error": "缺少 session_id"}), 400
+    if not clarification_request:
+        return jsonify({"error": "请先输入你想向面试官确认的问题"}), 400
+
+    session = INTERVIEW_SESSIONS.get(session_id)
+    if not session:
+        return jsonify({"error": "面试会话已失效，请重新开始。"}), 400
+
+    prompt = CLARIFICATION_PROMPT.format(
+        language_rules=LANGUAGE_RULES,
+        role=session["role"],
+        topic=session["topic"],
+        jd_text=(session.get("jd_text") or "未提供JD。")[:5000],
+        business_context=session.get("business_context") or "无业务模拟上下文。",
+        question=safe_prompt_text(session["current_question"]),
+        clarification_history=format_clarification_history(session.get("current_clarifications", [])),
+        clarification_request=safe_prompt_text(clarification_request),
+    )
+
+    response = call_llm(prompt, temperature=0.4, max_tokens=500)
+    if not response or response.startswith("LLM Error:"):
+        response = "你可以基于题目中已经给出的信息做合理假设，并在回答开头说明你的假设。"
+
+    item = {
+        "request": clarification_request,
+        "response": response,
+    }
+    session.setdefault("current_clarifications", []).append(item)
+
+    return jsonify({
+        "clarification": response,
+        "clarifications": session["current_clarifications"],
+    }), 200
+
+
 # ======================================================
 # ANSWER QUESTION
 # ======================================================
@@ -194,10 +257,12 @@ def submit_answer():
         return jsonify({"error": "面试会话已失效，请重新开始。"}), 400
 
     question = session["current_question"]
+    clarifications = session.get("current_clarifications", [])
 
     session["qa_history"].append({
         "question": question,
-        "answer": answer or "Don't know"
+        "answer": answer or "Don't know",
+        "clarifications": clarifications,
     })
 
     evaluation = evaluate_answer(
@@ -206,7 +271,8 @@ def submit_answer():
         question,
         answer,
         session.get("jd_text", ""),
-        session.get("business_context", "")
+        session.get("business_context", ""),
+        clarifications,
     )
 
     session["evaluation_history"].append(evaluation)
@@ -272,6 +338,7 @@ def submit_answer():
     )
 
     session["current_question"] = next_question
+    session["current_clarifications"] = []
 
     return jsonify({
         "done": False,

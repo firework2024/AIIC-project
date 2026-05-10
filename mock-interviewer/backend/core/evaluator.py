@@ -46,6 +46,10 @@ def normalize_study_cards(cards, fallback_gap=""):
     return normalized
 
 
+def safe_prompt_text(text):
+    return str(text or "").replace("<", "＜").replace(">", "＞")
+
+
 def is_skipped_answer(answer: str) -> bool:
     if not answer or len(answer.strip()) < 15:
         return True
@@ -64,7 +68,18 @@ def safe_json_parse(text: str) -> dict:
     return json.loads(match.group())
 
 
-def evaluate_answer(role, topic, question, answer, jd_text="", business_context=""):
+def format_clarification_history(clarifications):
+    if not clarifications:
+        return "无。"
+
+    lines = []
+    for i, item in enumerate(clarifications, start=1):
+        lines.append(f"候选人澄清问题{i}：{safe_prompt_text(item.get('request', ''))}")
+        lines.append(f"面试官澄清回复{i}：{safe_prompt_text(item.get('response', ''))}")
+    return "\n".join(lines)
+
+
+def evaluate_answer(role, topic, question, answer, jd_text="", business_context="", clarifications=None):
     # -------------------------------
     # Skipped / empty answer
     # -------------------------------
@@ -92,8 +107,9 @@ def evaluate_answer(role, topic, question, answer, jd_text="", business_context=
         topic=topic,
         jd_text=(jd_text or "未提供JD。")[:5000],
         business_context=business_context or "无业务模拟上下文。",
-        question=question,
-        answer=answer
+        question=safe_prompt_text(question),
+        clarification_history=format_clarification_history(clarifications or []),
+        answer=safe_prompt_text(answer)
     )
 
     response = call_llm(prompt)

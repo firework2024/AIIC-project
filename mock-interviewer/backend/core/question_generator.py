@@ -1,5 +1,6 @@
 from utils.llm_client import call_llm
 from config.prompts import (
+    INTERVIEW_QUESTION_SCOPE_RULES,
     LANGUAGE_RULES,
     QUESTION_GENERATION_PROMPT,
     RESUME_QUESTION_PROMPT,
@@ -52,6 +53,10 @@ def sanitize_question(text: str) -> str:
     if final_text and "?" not in final_text and "？" not in final_text:
         final_text += "？"
     return final_text
+
+
+def finalize_question(text: str, role: str, topic: str, question_focus: str = "") -> str:
+    return sanitize_question(text)
 
 
 def generate_business_context(role: str, topic: str, jd_text: str) -> str:
@@ -131,11 +136,12 @@ def generate_next_question(
             project_name=project_name,
             readme=project_readme,
         )
-        return sanitize_question(call_llm(prompt))
+        return finalize_question(call_llm(prompt), role, topic, "项目复盘")
 
     if interview_mode == "business":
         prompt = BUSINESS_SIMULATION_PROMPT.format(
             language_rules=LANGUAGE_RULES,
+            question_scope_rules=INTERVIEW_QUESTION_SCOPE_RULES,
             role=role,
             topic=topic,
             jd_text=safe_jd,
@@ -145,26 +151,29 @@ def generate_next_question(
             competence_summary=competence_summary,
             history=history,
         )
-        return sanitize_question(call_llm(prompt))
+        return finalize_question(call_llm(prompt), role, topic, "业务模拟场景")
 
     if interview_mode == "mixed" and should_force_resume_question(interview_mode, question_number, bool(resume_text)):
         prompt = RESUME_QUESTION_PROMPT.format(
             language_rules=LANGUAGE_RULES,
+            question_scope_rules=INTERVIEW_QUESTION_SCOPE_RULES,
             role=role,
             topic=topic,
             jd_text=safe_jd,
             resume_text=resume_text,
             history=history,
         )
-        return sanitize_question(call_llm(prompt))
+        return finalize_question(call_llm(prompt), role, topic, "简历深挖")
 
     if interview_mode == "mixed":
+        question_focus = mixed_question_focus(question_number, bool(resume_text))
         prompt = MIXED_INTERVIEW_PROMPT.format(
             language_rules=LANGUAGE_RULES,
+            question_scope_rules=INTERVIEW_QUESTION_SCOPE_RULES,
             role=role,
             topic=topic,
             question_number=question_number,
-            question_focus=mixed_question_focus(question_number, bool(resume_text)),
+            question_focus=question_focus,
             jd_text=safe_jd,
             business_context=business_context or "暂无业务模拟上下文。",
             confidence=confidence,
@@ -172,32 +181,35 @@ def generate_next_question(
             competence_summary=competence_summary,
             history=history,
         )
-        return sanitize_question(call_llm(prompt))
+        return finalize_question(call_llm(prompt), role, topic, question_focus)
 
     if interview_mode == "normal":
         prompt = RESUME_QUESTION_PROMPT.format(
             language_rules=LANGUAGE_RULES,
+            question_scope_rules=INTERVIEW_QUESTION_SCOPE_RULES,
             role=role,
             topic=topic,
             jd_text=safe_jd,
             resume_text=resume_text,
             history=history,
         )
-        return sanitize_question(call_llm(prompt))
+        return finalize_question(call_llm(prompt), role, topic, "简历深挖")
 
     if should_force_resume_question(interview_mode, question_number, bool(resume_text)):
         prompt = RESUME_QUESTION_PROMPT.format(
             language_rules=LANGUAGE_RULES,
+            question_scope_rules=INTERVIEW_QUESTION_SCOPE_RULES,
             role=role,
             topic=topic,
             jd_text=safe_jd,
             resume_text=resume_text,
             history=history,
         )
-        return sanitize_question(call_llm(prompt))
+        return finalize_question(call_llm(prompt), role, topic, "简历深挖")
 
     prompt = QUESTION_GENERATION_PROMPT.format(
         language_rules=LANGUAGE_RULES,
+        question_scope_rules=INTERVIEW_QUESTION_SCOPE_RULES,
         role=role,
         topic=topic,
         candidate_type="应届/初级候选人" if is_fresher else "有经验候选人",
@@ -207,4 +219,4 @@ def generate_next_question(
         jd_text=safe_jd,
         history=history,
     )
-    return sanitize_question(call_llm(prompt))
+    return finalize_question(call_llm(prompt), role, topic)

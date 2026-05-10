@@ -139,6 +139,15 @@ def generate_final_report(
         lines.extend([
             f"Q{i}. 问题：{qa.get('question', '')}",
             "",
+        ])
+        clarifications = qa.get("clarifications", []) or []
+        if clarifications:
+            lines.append("候选人反问与面试官澄清：")
+            for item in clarifications:
+                lines.append(f"- 候选人：{item.get('request', '')}")
+                lines.append(f"- 面试官：{item.get('response', '')}")
+            lines.append("")
+        lines.extend([
             f"候选人回答：{qa.get('answer', '')}",
             "",
             "评价：",

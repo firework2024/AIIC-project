@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { submitAnswer } from "../services/api";
+import { clarifyQuestion, submitAnswer } from "../services/api";
 import Editor from "@monaco-editor/react";
 import ReactMarkdown from "react-markdown";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
-import { Mic, Square, Send, Code, FileText, AlertCircle, Loader2, Sparkles, ChevronDown, ChevronUp, Lightbulb } from "lucide-react";
+import { Mic, Square, Send, Code, FileText, AlertCircle, Loader2, Sparkles, ChevronDown, ChevronUp, Lightbulb, MessageCircle } from "lucide-react";
 import { saveInterviewRecord } from "../utils/interviewStorage";
 
 /* -------------------------------
@@ -38,6 +38,9 @@ export default function Interview() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showTips, setShowTips] = useState(false);
+  const [clarificationText, setClarificationText] = useState("");
+  const [clarifications, setClarifications] = useState([]);
+  const [clarifying, setClarifying] = useState(false);
 
   const [questionIndex, setQuestionIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("answer");
@@ -134,6 +137,8 @@ export default function Interview() {
       setQuestion(res.data.next_question);
       setTextAnswer("");
       setCodeAnswer("");
+      setClarificationText("");
+      setClarifications([]);
       setActiveTab("answer");
       setQuestionIndex((q) => q + 1);
       speakQuestion(res.data.next_question);
@@ -143,6 +148,29 @@ export default function Interview() {
       setError(err?.response?.data?.error || "服务器错误，请稍后重试。");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClarify = async () => {
+    if (!clarificationText.trim()) {
+      setError("请先输入你想向面试官确认的问题。");
+      return;
+    }
+
+    setClarifying(true);
+    setError("");
+
+    try {
+      const res = await clarifyQuestion({
+        session_id: sessionId,
+        clarification: clarificationText,
+      });
+      setClarifications(res.data.clarifications || []);
+      setClarificationText("");
+    } catch (err) {
+      setError(err?.response?.data?.error || "澄清请求失败，请稍后重试。");
+    } finally {
+      setClarifying(false);
     }
   };
 
@@ -200,6 +228,24 @@ export default function Interview() {
         </motion.div>
       )}
 
+      {clarifications.length > 0 && (
+        <Card className="space-y-4 border-cyan-400/20 bg-cyan-400/5">
+          <h3 className="text-sm font-bold uppercase tracking-widest text-cyan-300">反问澄清记录</h3>
+          <div className="space-y-3">
+            {clarifications.map((item, idx) => (
+              <div key={idx} className="space-y-2 text-sm">
+                <div className="rounded-lg bg-slate-950/50 border border-slate-800 p-3 text-slate-300">
+                  <span className="text-cyan-300 font-medium">你：</span>{item.request}
+                </div>
+                <div className="rounded-lg bg-slate-900/70 border border-cyan-400/20 p-3 text-slate-200">
+                  <span className="text-cyan-300 font-medium">面试官：</span>{item.response}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* ANSWER SECTION */}
       <div className="space-y-4">
         {/* Toolbar */}
@@ -224,6 +270,22 @@ export default function Interview() {
 
           {/* Right: Actions (Tips + Submit) */}
           <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+            <div className="hidden xl:flex items-center gap-2">
+              <input
+                value={clarificationText}
+                onChange={(e) => setClarificationText(e.target.value)}
+                className="w-80 px-3 py-2 rounded-lg bg-slate-900/70 border border-slate-700 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-400/50"
+                placeholder="不确定时，先向面试官澄清..."
+              />
+              <Button
+                onClick={handleClarify}
+                disabled={clarifying || loading}
+                variant="outline"
+                className="shrink-0"
+              >
+                {clarifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+              </Button>
+            </div>
             <button
               onClick={() => setShowTips(!showTips)}
               className="flex items-center gap-2 text-sm text-yellow-500 hover:text-yellow-400 transition-colors px-3 py-2 rounded-lg hover:bg-yellow-500/10"
@@ -251,6 +313,25 @@ export default function Interview() {
             </Button>
           </div>
         </div>
+
+        <Card className="xl:hidden p-4 space-y-3 bg-slate-900/40 border-slate-800">
+          <div className="flex items-center gap-2 text-sm font-medium text-cyan-300">
+            <MessageCircle className="w-4 h-4" />
+            向面试官澄清
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              value={clarificationText}
+              onChange={(e) => setClarificationText(e.target.value)}
+              className="flex-1 px-3 py-2 rounded-lg bg-slate-950/70 border border-slate-700 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-400/50"
+              placeholder="例如：这里是否可以做合理假设？"
+            />
+            <Button onClick={handleClarify} disabled={clarifying || loading} variant="outline">
+              {clarifying ? "澄清中..." : "发送澄清"}
+            </Button>
+          </div>
+          <p className="text-xs text-slate-500">澄清不计入题数，最终提交本题答案时一起整体评分。</p>
+        </Card>
 
         {/* Collapsible Tips */}
         <AnimatePresence>

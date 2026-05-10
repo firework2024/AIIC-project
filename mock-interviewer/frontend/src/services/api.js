@@ -13,6 +13,9 @@ export const startInterview = (formData) =>
 export const submitAnswer = (payload) =>
   axios.post(`${API}/interview/answer`, payload);
 
+export const clarifyQuestion = (payload) =>
+  axios.post(`${API}/interview/clarify`, payload);
+
 export const downloadReportPdf = (report) =>
   axios.post(
     `${API}/interview/report/pdf`,
