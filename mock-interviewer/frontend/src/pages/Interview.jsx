@@ -228,7 +228,7 @@ export default function Interview() {
       setClarifications(res.data.clarifications || []);
       setClarificationText("");
     } catch (err) {
-      setError(err?.response?.data?.error || "澄清请求失败，请稍后重试。");
+      setError(err?.response?.data?.error || "明确问题请求失败，请稍后重试。");
     } finally {
       setClarifying(false);
     }
@@ -358,7 +358,7 @@ export default function Interview() {
 
       {clarifications.length > 0 && (
         <Card className="space-y-4 border-cyan-300/40 bg-cyan-950/40">
-          <h3 className="text-sm font-bold uppercase tracking-widest text-cyan-300">题意确认记录</h3>
+          <h3 className="text-sm font-bold uppercase tracking-widest text-cyan-300">明确问题记录</h3>
           <div className="space-y-3">
             {clarifications.map((item, idx) => (
               <div key={idx} className="space-y-2 text-sm">
@@ -381,7 +381,7 @@ export default function Interview() {
               <MessageCircle className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-cyan-100">向面试官澄清</h2>
+              <h2 className="text-base font-semibold text-cyan-100">明确问题</h2>
               <p className="text-sm text-cyan-100/70">用于确认题目边界、可用假设或回答范围；不计入题数，也不会单独评分。</p>
             </div>
           </div>
@@ -409,7 +409,7 @@ export default function Interview() {
             ) : (
               <>
                 <MessageCircle className="w-4 h-4 mr-2" />
-                发送澄清
+                提交问题
               </>
             )}
           </Button>

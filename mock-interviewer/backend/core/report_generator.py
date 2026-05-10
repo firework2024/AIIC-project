@@ -260,7 +260,7 @@ def generate_final_report(
         ])
         clarifications = qa.get("clarifications", []) or []
         if clarifications:
-            lines.append("候选人反问与面试官澄清：")
+            lines.append("候选人明确问题与面试官说明：")
             for item in clarifications:
                 lines.append(f"- 候选人：{item.get('request', '')}")
                 lines.append(f"- 面试官：{item.get('response', '')}")

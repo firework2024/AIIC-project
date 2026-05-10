@@ -318,8 +318,8 @@ def format_clarification_history(clarifications):
         return "无。"
     lines = []
     for i, item in enumerate(clarifications, start=1):
-        lines.append(f"候选人澄清问题{i}：{safe_prompt_text(item.get('request', ''))}")
-        lines.append(f"面试官澄清回复{i}：{safe_prompt_text(item.get('response', ''))}")
+        lines.append(f"候选人明确问题{i}：{safe_prompt_text(item.get('request', ''))}")
+        lines.append(f"面试官说明{i}：{safe_prompt_text(item.get('response', ''))}")
     return "\n".join(lines)
 
 
@@ -409,7 +409,7 @@ def clarify_question():
     if not session_id:
         return jsonify({"error": "缺少 session_id"}), 400
     if not clarification_request:
-        return jsonify({"error": "请先输入你想向面试官确认的问题"}), 400
+        return jsonify({"error": "请先输入你想明确的问题"}), 400
 
     session = INTERVIEW_SESSIONS.get(session_id)
     if not session:
@@ -417,7 +417,7 @@ def clarify_question():
     if session.get("finished"):
         return jsonify({"error": "面试已结束，请查看报告或重新开始。"}), 400
     if is_timed_out(session):
-        return jsonify({"error": "面试时间已结束，不能继续澄清。"}), 400
+        return jsonify({"error": "面试时间已结束，不能继续明确问题。"}), 400
 
     prompt = CLARIFICATION_PROMPT.format(
         language_rules=LANGUAGE_RULES,
