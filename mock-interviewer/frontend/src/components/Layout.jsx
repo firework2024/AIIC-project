@@ -16,10 +16,10 @@ export default function Layout({ children }) {
         <div className="w-full mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 group">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center transform group-hover:rotate-12 transition-transform duration-300">
-              <span className="text-lg font-bold">金</span>
+              <span className="text-lg font-bold">M</span>
             </div>
             <span className="font-display font-bold text-xl tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-              金融面试助手
+              Mock-Me
             </span>
           </Link>
 
@@ -28,7 +28,7 @@ export default function Layout({ children }) {
               首页
             </Link>
             <Link to="/history" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
-              历史
+              历史记录
             </Link>
           </div>
         </div>
