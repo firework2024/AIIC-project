@@ -22,7 +22,7 @@ export default function Home() {
         </h1>
 
         <p className="text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed animate-fade-up" style={{ animationDelay: "0.2s" }}>
-          围绕简历、JD 和作品材料生成贴近真实业务场景的问题，支持压力面、反向澄清、语音作答与复盘知识卡片。
+          围绕简历、JD 和作品材料生成贴近真实业务场景的问题，支持压力面、明确问题、语音作答与复盘知识卡片。
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up" style={{ animationDelay: "0.3s" }}>

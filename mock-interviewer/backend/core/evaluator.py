@@ -201,8 +201,8 @@ def format_clarification_history(clarifications):
 
     lines = []
     for i, item in enumerate(clarifications, start=1):
-        lines.append(f"候选人澄清问题{i}：{safe_prompt_text(item.get('request', ''))}")
-        lines.append(f"面试官澄清回复{i}：{safe_prompt_text(item.get('response', ''))}")
+        lines.append(f"候选人明确问题{i}：{safe_prompt_text(item.get('request', ''))}")
+        lines.append(f"面试官说明{i}：{safe_prompt_text(item.get('response', ''))}")
     return "\n".join(lines)
 
 
