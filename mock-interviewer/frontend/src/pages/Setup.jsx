@@ -9,14 +9,14 @@ import { fetchTopics, startInterview } from "../services/api";
 import { BarChart3, BriefcaseBusiness, Building2, FileText, Loader2, Shuffle, Timer, Upload, UserRound, Zap } from "lucide-react";
 
 const ROLE_OPTIONS = [
-    { label: "投资银行", value: "投资银行" },
-    { label: "二级市场 / 销售交易", value: "二级市场 / 销售交易" },
-    { label: "资产与财富管理", value: "资产与财富管理" },
-    { label: "研究", value: "研究" },
-    { label: "私募与另类投资", value: "私募与另类投资" },
-    { label: "风控 / 合规 / 运营", value: "风控 / 合规 / 运营" },
-    { label: "公司金融 / 战略", value: "公司金融 / 战略" },
-    { label: "金融科技 / 数据", value: "金融科技 / 数据" },
+    { label: "一级市场：投行与资本市场", value: "投资银行" },
+    { label: "二级市场：销售交易与产品", value: "二级市场与交易" },
+    { label: "买方投资：资管与财富管理", value: "资产与财富管理" },
+    { label: "投研分析：行业、公司与宏观", value: "研究" },
+    { label: "股权投资：PE / VC / 另类资产", value: "私募与另类投资" },
+    { label: "风险治理：风控、合规与运营", value: "风控、合规与运营" },
+    { label: "企业端：公司金融与战略财务", value: "公司金融与战略" },
+    { label: "金融科技：量化、数据与产品", value: "金融科技与数据" },
 ];
 
 export default function Setup() {
@@ -38,15 +38,39 @@ export default function Setup() {
         pressureIndex: 5,
     });
 
+    const getTopicOptionsForRole = (role) => {
+        const roleTopics = topics[role] || [];
+        return roleTopics.map((topic) => ({ label: topic, value: topic }));
+    };
+
+    const selectedRoleLabel = ROLE_OPTIONS.find((option) => option.value === formData.role)?.label || formData.role;
+
+    const handleRoleChange = (role) => {
+        const nextTopics = topics[role] || [];
+        setFormData((prev) => ({
+            ...prev,
+            role,
+            topic: nextTopics.includes(prev.topic) ? prev.topic : "",
+        }));
+    };
+
     useEffect(() => {
         fetchTopics()
             .then((res) => setTopics(res.data))
             .catch((err) => console.error("Failed to load topics", err));
     }, []);
 
+    useEffect(() => {
+        if (!formData.topic) return;
+        const currentTopics = topics[formData.role] || [];
+        if (currentTopics.length && !currentTopics.includes(formData.topic)) {
+            setFormData((prev) => ({ ...prev, topic: "" }));
+        }
+    }, [formData.role, formData.topic, topics]);
+
     const handleStart = async () => {
         if (!formData.name) return setError("请输入姓名");
-        if (formData.mode !== "project" && !formData.topic) return setError("请选择金融业务主题");
+        if (formData.mode !== "project" && !formData.topic) return setError("请选择细分业务模块");
         if (formData.mode === "project" && !formData.workSample) return setError("作品答辩模式需要上传作品文件");
 
         if (formData.mode === "normal" && !formData.resume) return setError("简历深挖模式需要先上传简历");
@@ -91,22 +115,12 @@ export default function Setup() {
         }
     };
 
-    const getTopicOptions = () => {
-        const allTopics = [];
-        Object.keys(topics).forEach((category) => {
-            topics[category].forEach((topic) => {
-                allTopics.push({ label: `${category} - ${topic}`, value: topic });
-            });
-        });
-        return allTopics;
-    };
-
     return (
         <div className="flex items-center justify-center min-h-[80vh]">
             <Card className="w-full max-w-4xl bg-slate-900/40 border-slate-800/50 backdrop-blur-xl">
                 <div className="text-center mb-8">
                     <h2 className="text-3xl font-bold text-white mb-2">配置金融求职模拟面试</h2>
-                    <p className="text-slate-400">粘贴 JD，选择金融方向，开始岗位定制化中文面试。</p>
+                    <p className="text-slate-400">先选一级赛道，再选择该赛道下的细分业务模块，开始岗位定制化中文面试。</p>
                 </div>
 
                 <div className="space-y-6">
@@ -168,19 +182,17 @@ export default function Setup() {
                         >
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <Select
-                                    label="目标岗位方向"
+                                    label="一级赛道"
                                     value={formData.role}
-                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                    onChange={(e) => handleRoleChange(e.target.value)}
                                     options={ROLE_OPTIONS}
                                 />
                                 <Select
-                                    label="业务主题"
+                                    label="细分业务模块"
                                     value={formData.topic}
                                     onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
-                                    options={[
-                                        { label: "请选择金融业务主题", value: "" },
-                                        ...getTopicOptions(),
-                                    ]}
+                                    placeholder={`请选择 ${selectedRoleLabel} 下的模块`}
+                                    options={getTopicOptionsForRole(formData.role)}
                                 />
                             </div>
 
@@ -216,19 +228,17 @@ export default function Setup() {
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <Select
-                                    label="目标岗位方向"
+                                    label="一级赛道"
                                     value={formData.role}
-                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                    onChange={(e) => handleRoleChange(e.target.value)}
                                     options={ROLE_OPTIONS}
                                 />
                                 <Select
-                                    label="业务主题"
+                                    label="作品答辩方向"
                                     value={formData.topic}
                                     onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
-                                    options={[
-                                        { label: "作品答辩 / 行研 / 投资分析", value: "" },
-                                        ...getTopicOptions(),
-                                    ]}
+                                    placeholder={`默认按 ${selectedRoleLabel} 视角答辩`}
+                                    options={getTopicOptionsForRole(formData.role)}
                                 />
                             </div>
 

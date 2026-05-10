@@ -243,7 +243,7 @@ export default function Interview() {
 
   const handleClarify = async () => {
     if (!clarificationText.trim()) {
-      setError("请先输入你想向面试官确认的问题。");
+      setError("请先输入你想确认的题意或边界条件。");
       return;
     }
 
@@ -280,10 +280,10 @@ export default function Interview() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full border ${isTimeCritical ? "text-red-200 border-red-400/50 bg-red-500/15" : "text-cyan-100 border-cyan-300/30 bg-cyan-300/10"}`}>
-              <Timer className="w-4 h-4" />剩余 {remainingSeconds === null ? "--:--" : formatDuration(remainingSeconds)}
+              <Timer className="w-4 h-4" />整场剩余 {remainingSeconds === null ? "--:--" : formatDuration(remainingSeconds)}
             </span>
             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-slate-700 bg-slate-900/70 text-slate-300">
-              本题 {formatDuration(questionElapsedSeconds)}
+              本题已用 {formatDuration(questionElapsedSeconds)}
             </span>
           </div>
         </div>
@@ -332,7 +332,7 @@ export default function Interview() {
 
       {clarifications.length > 0 && (
         <Card className="space-y-4 border-cyan-300/40 bg-cyan-950/40">
-          <h3 className="text-sm font-bold uppercase tracking-widest text-cyan-300">反问澄清记录</h3>
+          <h3 className="text-sm font-bold uppercase tracking-widest text-cyan-300">题意确认记录</h3>
           <div className="space-y-3">
             {clarifications.map((item, idx) => (
               <div key={idx} className="space-y-2 text-sm">
@@ -340,7 +340,7 @@ export default function Interview() {
                   <span className="text-cyan-300 font-medium">你：</span>{item.request}
                 </div>
                 <div className="rounded-lg bg-cyan-950/50 border border-cyan-300/30 p-3 text-slate-50">
-                  <span className="text-cyan-300 font-medium">面试官：</span>{item.response}
+                  <span className="text-cyan-300 font-medium">系统说明：</span>{item.response}
                 </div>
               </div>
             ))}
@@ -355,12 +355,12 @@ export default function Interview() {
               <MessageCircle className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-cyan-100">向面试官澄清</h2>
-              <p className="text-sm text-cyan-100/70">不确定题意时先反问；澄清不会计入题数，也不会单独评分。</p>
+              <h2 className="text-base font-semibold text-cyan-100">题意确认区</h2>
+              <p className="text-sm text-cyan-100/70">用于确认题目边界、可用假设或回答范围；不会计入题数，也不会单独评分。</p>
             </div>
           </div>
           <span className="text-xs px-3 py-1 rounded-full border border-cyan-300/30 text-cyan-100 bg-cyan-300/10 w-fit">
-            辅助沟通区
+            不计分
           </span>
         </div>
 
@@ -369,7 +369,7 @@ export default function Interview() {
             value={clarificationText}
             onChange={(e) => setClarificationText(e.target.value)}
             className="flex-1 px-4 py-3 rounded-xl bg-slate-950/80 border border-cyan-300/25 text-slate-50 placeholder:text-slate-300/70 focus:outline-none focus:border-cyan-200 focus:ring-2 focus:ring-cyan-300/20"
-            placeholder="例如：这个场景里是否可以做合理假设？是否只考虑境内市场？"
+            placeholder="例如：这个场景里是否可以做合理假设？是否只考虑境内市场？需要从哪个角色视角回答？"
           />
           <Button
             onClick={handleClarify}
@@ -380,12 +380,12 @@ export default function Interview() {
             {clarifying ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                澄清中
+                确认中
               </>
             ) : (
               <>
                 <MessageCircle className="w-4 h-4 mr-2" />
-                发送澄清
+                发送确认
               </>
             )}
           </Button>

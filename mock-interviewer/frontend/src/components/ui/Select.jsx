@@ -2,7 +2,7 @@ import React from "react";
 import { cn } from "../../utils/cn";
 import { ChevronDown } from "lucide-react";
 
-export const Select = ({ label, options, value, onChange, className, ...props }) => {
+export const Select = ({ label, options, value, onChange, className, placeholder = "请选择...", ...props }) => {
     return (
         <div className="space-y-2">
             {label && (
@@ -22,7 +22,7 @@ export const Select = ({ label, options, value, onChange, className, ...props })
                     )}
                     {...props}
                 >
-                    <option value="" disabled className="bg-slate-900 text-slate-500">请选择...</option>
+                    <option value="" disabled className="bg-slate-900 text-slate-500">{placeholder}</option>
                     {options.map((opt) => (
                         <option key={opt.value} value={opt.value} className="bg-slate-900 text-slate-200">
                             {opt.label}
