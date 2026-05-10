@@ -265,6 +265,7 @@ def start_interview():
         jd_text=jd_text,
         business_context=business_context,
         pressure_index=pressure_index,
+        evaluation_history=[],
     )
 
     INTERVIEW_SESSIONS[session_id]["current_question"] = first_question
@@ -415,6 +416,7 @@ def submit_answer():
         jd_text=session.get("jd_text", ""),
         business_context=session.get("business_context", ""),
         pressure_index=session.get("pressure_index", 5),
+        evaluation_history=session["evaluation_history"],
     )
 
     session["current_question"] = next_question

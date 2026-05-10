@@ -1,287 +1,265 @@
-# 🤖 Composable AI Mock Interviewer  
-### Composable, Adaptive & Feedback-Driven Interview Platform
+# 金融求职模拟面试助手
 
-## AIIC Project Initial Version
+一个面向金融行业求职者的智能模拟面试系统。项目围绕投行、研究、资管、私募、风控合规、公司金融、金融科技等典型商科岗位，提供 JD 定制化出题、简历深挖、业务模拟、作品答辩、限时压力面、逐题评分、面试报告和本机知识库沉淀。
 
-This copy is the AIIC project baseline deployed on the user's Alibaba Cloud ECS.
+当前线上演示地址：
 
-- Backend LLM provider: DeepSeek OpenAI-compatible Chat Completions API
-- Model: `deepseek-v4-flash`
-- Thinking mode: explicitly disabled with `thinking.type = "disabled"`
-- API base path: frontend uses `/api` by default for same-origin Nginx deployment
-- Secrets: real API keys are loaded from server environment variables and are not committed
-- Public test URL used during setup: `https://8.140.221.115/`
-
-[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen)](https://composable-ai-mock-interviewer-ldcv.onrender.com)
-[![Frontend](https://img.shields.io/badge/Frontend-React-blue)](https://react.dev)
-[![Backend](https://img.shields.io/badge/Backend-Flask-black)](https://flask.palletsprojects.com)
-[![LLM](https://img.shields.io/badge/LLM-Groq%20(LLaMA3)-purple)](https://groq.com)
-
-An **AI-powered mock interview platform** that dynamically adapts questions, evaluates answers, tracks interview memory, and generates a **detailed final interview report**.
-
-Unlike traditional interview tools that rely on static question lists, this system is built using **composable AI blocks** that work together to simulate a **real interviewer**.
-
----
-
-## 🚀 Live Demo
-
-🔗 **Frontend + Backend (Deployed)**  
-👉 [https://composable-ai-mock-interviewer-ldcv.onrender.com](https://composable-ai-mock-interviewer-five.vercel.app/)
-
----
-
-## 🎯 Problem Statement
-
-Most interview preparation platforms suffer from:
-- Static, predefined questions
-- No adaptability based on answers
-- No real evaluation or feedback
-- No scoring or interview summary
-
-This project solves that by building a **stateful, adaptive AI interviewer** that:
-- Adjusts questions in real time
-- Evaluates answers fairly (not overly strict)
-- Tracks confidence vs competence
-- Produces a professional interview report
-
----
-
-## ✅ Hackathon Requirements Coverage
-
-| Requirement | Status |
-|------------|--------|
-| Interview type selection (HR / Tech / Behavioral) | ✅ |
-| Context input (Topic / Resume / Project) | ✅ |
-| Adaptive interview (≥ 5 Q&A turns) | ✅ |
-| Evaluation logic + scoring | ✅ |
-| Final interview report | ✅ |
-| Composable interview flow | ✅ |
-| Audio (voice-based questions) | ✅ |
-| Working UI | ✅ |
-| Candidate Q&A experience | ✅ |
-
----
-
-## 🧠 Composable AI Architecture
-
-The system is built using **independent AI blocks**:
 ```text
-Role Block (Interview Type)
-↓
-Question Generator (LLM)
-↓
-Memory Block (Q&A History)
-↓
-Evaluation Block (Scoring)
-↓
-Feedback Block (Improvements)
-↓
-Final Report Generator
+https://8.140.221.115/
 ```
 
-Each block is **loosely coupled**, making the system:
-- Extensible
-- Maintainable
-- Easy to upgrade
+## 项目定位
 
----
+传统面试准备工具往往只提供题库或泛泛的 AI 问答，无法还原金融面试中最关键的场景：面试官会围绕候选人的简历、目标岗位 JD、业务场景、研究作品和上一轮回答不断追问。金融面试也很少只考一个标准答案，更常见的是考察候选人的判断依据、风险意识、沟通方式和取舍能力。
 
-## 🧩 Interview Modes
+本项目希望解决的是：让候选人在正式面试前，提前经历一场更接近真实金融面试的训练。
 
-### 1️⃣ Normal Interview
-- Select interview type: **Technical / HR / Behavioral**
-- Select topic (Python, JavaScript, SQL, etc.)
-- Optional resume upload
-- Adaptive questioning based on performance
+## 解决的金融面试痛点
 
-### 2️⃣ Project (GitHub) Interview
-- Provide a **GitHub repository URL**
-- AI reads the project **README**
-- Questions focus on:
-  - Design decisions
-  - Architecture
-  - Technical trade-offs
-- Evaluates real-world understanding
+### 1. 泛泛刷题，无法贴合真实岗位
 
----
+金融岗位之间差异很大。投行、二级市场研究、资管、PE/VC、风控合规、战略和金融科技考察重点完全不同。系统允许用户粘贴目标岗位 JD，并选择岗位方向与业务主题，后端会把 JD 中的职责、工具、行业、产品和能力要求写入出题上下文。
 
-## 🎤 Audio Mode (Voice Questions)
+候选人练到的不是“金融基础题大全”，而是更接近目标岗位的面试问题。
 
-- Each interview question is **narrated using browser speech synthesis**
-- Candidate can replay the question anytime
-- Improves accessibility and realism
+### 2. 简历经历容易被问穿
 
----
+很多候选人对简历项目只会背简介，遇到追问就露出参与深度不足、数据不清、结果不具体的问题。系统提供“简历深挖”模式，只围绕上传简历连续追问，重点考察：
 
-## 🧠 Adaptive Questioning Logic
+- 你到底做了什么，而不是团队做了什么
+- 项目目标、过程、结果是否闭环
+- 数据、模型、结论和岗位能力是否能对上
+- 经历是否能证明金融工作中的分析、沟通和执行能力
 
-Next question depends on:
-- Quality of previous answers
-- Interview phase (warm-up → intermediate → advanced)
-- Candidate confidence vs observed competence
-- Resume or project context (if provided)
+### 3. 缺少真实业务场景训练
 
-This avoids:
-- Repetition
-- Random difficulty jumps
-- Static interview flows
+金融面试常见的问题不是“定义是什么”，而是“如果客户、监管、审计师、投资人或团队意见冲突，你怎么判断”。系统的业务模拟模式会基于 JD 生成面试官人设和业务场景，让候选人进入真实角色进行判断。
 
----
+例如：
 
-## 📊 Evaluation & Scoring
+- IPO 项目中合规披露与客户商业影响如何权衡
+- 投资研究中长期逻辑和短期估值压力如何平衡
+- 尽调中发现关键风险时如何向上汇报
+- 风控或合规场景下如何处理业务部门压力
 
-Each answer is evaluated on:
-- Conceptual correctness
-- Clarity of explanation
-- Depth of understanding
-- Practical reasoning
+### 4. 不会答时容易被反复追问同一个问题
 
-The evaluator is **intentionally mellowed**:
-- Near-correct answers are not harshly penalized
-- Encourages learning instead of discouragement
+真实面试中，如果候选人没有给出有效回答，好的面试官不会机械复读原题，而会换一个更小的入口引导候选人展示能力。本项目加入了无效回答识别和重复问题拦截：
 
----
+- 候选人回答过短、跳过或低分时，下一题会降阶引导
+- 系统禁止重复历史中已经问过的问题
+- 如果模型生成的问题与历史问题过于相似，会自动替换成更小的引导题
 
-## 📄 Final Interview Report
+这样既保留压力，也避免无意义地反复拷打同一个问题。
 
-After 5 interview questions, the system generates a **professional interview report**, including:
+### 5. 练完面试后缺少可复习材料
 
-- Overall performance summary
-- Strengths and weaknesses
-- Confidence vs competence comparison
-- Question-wise evaluation
-- Final score & verdict
-- Actionable improvement tips
+系统不仅给分，还会沉淀本机历史记录和知识卡片。每场面试最多生成 6 张知识卡片，并进行去重，避免知识库膨胀成无效列表。知识卡片主要基于题目背后的专业知识，而不是简单复述候选人的错误回答。
 
-📥 **Report can be downloaded as PDF**
+适合沉淀的内容包括：
 
----
+- 收入确认与返利计提
+- Pre-IPO 对赌条款与回购风险
+- 可比公司选择与估值区间论证
+- 客户集中度风险披露
+- 现金流质量分析
+- 投资逻辑中的关键假设验证
 
-## 🧠 Where AI Is Used
+### 6. 缺少时间压力与压力面训练
 
-AI is used across the system:
+金融面试通常有时间压力，也可能遇到强硬质疑。系统新增：
 
-- **Question Generation:** LLM dynamically creates interview questions
-- **Adaptive Logic:** Next question depends on previous answers
-- **Answer Evaluation:** AI scores responses and highlights gaps
-- **Competence Estimation:** Tracks performance trends
-- **Final Report Generation:** AI writes a structured interview report
-- **Audio Narration:** AI-assisted text-to-speech (browser API)
-- **Documentation:** This README was structured using **AI-assisted tooling (readme.so)**
+- 面试限时功能：用户可选择面试时长，到时间自动停止
+- 每题计时显示：显示总剩余时间和当前题用时
+- 超时结算：未回答题目自动计 0 分
+- 压力面指数：指数越高，问题越犀利，更强调反证、风险暴露和优先级判断
 
----
+## 核心功能
 
-## 🖥️ Technology Stack
+### 面试模式
 
-### Frontend
-- React (Vite)
-- Tailwind CSS
-- Monaco Editor (code answers)
-- React Markdown
+| 模式 | 说明 |
+| --- | --- |
+| 简历深挖 | 必须上传简历，系统只围绕简历连续追问 |
+| 业务模拟 | 根据 JD 生成业务场景和面试官人设，围绕场景提问 |
+| 混合面试 | 综合简历、业务场景、专业知识、沟通协作和压力题 |
+| 作品答辩 | 上传行研报告、PPT、投资备忘录或商业分析材料，系统围绕作品内容提问 |
 
-### Backend
-- Python
-- Flask
-- Flask-CORS
+### 输入材料
 
-### AI / LLM
-- Groq API
-- LLaMA 3.1 (8B Instant)
+- 目标岗位方向
+- 金融业务主题
+- 岗位 JD
+- 简历文件
+- 作品文件：支持 PDF、TXT、PPTX
+- 面试时长
+- 压力面指数
 
-### Deployment
-- Frontend: **Vercel**
-- Backend: **Render**
+### 面试过程
 
----
+- 动态生成问题
+- 支持候选人反问澄清
+- 澄清不单独计分
+- 文字回答与建模/分析笔记输入
+- 浏览器语音播报题目
+- 当前题计时与总倒计时
+- 超时自动结算
 
-## 📂 Project Structure
+### 面试后
+
+- 最终得分
+- 逐题评分
+- 优势与改进建议
+- 完整文字报告
+- PDF 报告下载
+- 本机历史记录
+- 知识卡片库
+
+## 技术架构
+
+```text
+React 前端
+  |
+  |  表单、文件上传、面试交互、历史记录、本机知识库
+  v
+Flask 后端 API
+  |
+  |  会话状态、限时控制、文件解析、问题生成、答案评价、报告生成
+  v
+DeepSeek OpenAI-compatible Chat Completions API
+```
+
+### 后端模块
+
+```text
+backend/
+├── app.py
+├── routes/
+│   └── interview.py              # 面试启动、答题、澄清、报告下载
+├── core/
+│   ├── question_generator.py     # 自适应出题、重复问题拦截、降阶引导
+│   ├── evaluator.py              # 逐题评分、知识卡片兜底
+│   ├── report_generator.py       # 最终报告、知识卡片汇总与去重
+│   └── competence_estimator.py   # 能力估计
+├── config/
+│   └── prompts.py                # 金融面试提示词
+└── utils/
+    ├── llm_client.py             # DeepSeek API 调用
+    ├── resume_validator.py       # 简历解析
+    └── work_sample_parser.py     # 作品解析
+```
+
+### 前端模块
 
 ```text
 frontend/
 ├── src/
-│ ├── components/
-│ ├── pages/
-│ ├── services/
-│ └── context/
-
-backend/
-├── routes/
-├── core/
-├── utils/
-├── config/
-└── app.py
+│   ├── pages/
+│   │   ├── Setup.jsx             # 面试配置
+│   │   ├── Interview.jsx         # 面试进行页
+│   │   ├── Report.jsx            # 面试报告
+│   │   └── History.jsx           # 历史记录与知识库
+│   ├── components/
+│   ├── services/
+│   └── utils/
 ```
 
+## 技术栈
 
----
+### 前端
 
-## 🔐 Environment Variables
+- React
+- Vite
+- Tailwind CSS
+- Framer Motion
+- Monaco Editor
+- React Markdown
+- Lucide Icons
 
-Create a `.env` file inside `backend/`:
+### 后端
 
-```env
-GROQ_API_KEY=your_groq_api_key
-FLASK_ENV=production
-```
+- Python
+- Flask
+- Gunicorn
+- PyPDF2
+- python-pptx
+- ReportLab
 
-## 🧪 Running Locally
+### 模型
 
-### Backend
+- DeepSeek OpenAI-compatible Chat Completions API
+- 默认模型：`deepseek-v4-flash`
+- 显式关闭 thinking：`thinking.type = "disabled"`
+
+## 本地运行
+
+### 后端
 
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
+cd mock-interviewer/backend
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
 ```
 
-### Frontend
+### 前端
 
 ```bash
-cd frontend
+cd mock-interviewer/frontend
 npm install
 npm run dev
 ```
 
+## 环境变量
 
-## 🚀 Deployment Details
+在 `mock-interviewer/backend/.env` 中配置：
 
-**Backend:** Deployed on Render  
-**Frontend:** Deployed on Vercel  
-
-### 🔗 API Base URL
-```js
-const API = "https://composable-ai-mock-interviewer-ldcv.onrender.com/api";
+```env
+DEEPSEEK_API_KEY=your_api_key
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-flash
 ```
 
-## 🔮 Future Improvements
+真实 API Key 应只保存在本地或服务器环境变量中，不能提交到 GitHub。
 
-- Code execution sandbox for real-time evaluation  
-- Multi-candidate analytics dashboard  
-- Recruiter / interviewer dashboard  
-- Persistent interview history per user  
-- Difficulty calibration based on role and experience  
-- Interview performance comparison metrics  
+## 部署说明
 
----
+当前项目已部署在阿里云 ECS，通过 Nginx 对外提供 HTTPS 访问：
 
-## 👨‍💻 Author
+```text
+https://8.140.221.115/
+```
 
-**Koushik Gupta**  
-*B.Tech (Information Technology)*  
-**AI Systems | Full-Stack Developer**
+前端构建后由 Nginx 托管，后端由 systemd + Gunicorn 常驻运行。前端默认通过同源 `/api` 访问后端，避免在浏览器暴露模型 API Key。
 
----
+## 当前已完成能力
 
-## 🏁 Final Note
+- 金融行业分类与岗位方向适配
+- JD 定制化出题
+- 简历深挖模式
+- 业务模拟模式
+- 混合面试模式
+- 作品答辩模式
+- 中文输入输出
+- 候选人反问澄清
+- 无效回答后的降阶引导
+- 重复问题拦截
+- 限时面试与每题计时
+- 压力面指数
+- 逐题评分
+- 最终报告与 PDF 下载
+- 本机历史记录
+- 插卡式知识库
+- 知识卡片去重与每场最多 6 张限制
 
-This project demonstrates how **AI interviews should be built**:
+## 后续可扩展方向
 
-- **Modular**  
-- **Adaptive**  
-- **Fair**  
-- **Insightful**  
+- 用户登录与云端历史同步
+- 更多金融细分岗位题型模板
+- 作品图表与表格结构化解析
+- 真实面试官音色与语音输入
+- 面试表现趋势分析
+- 按岗位生成复习计划
+- 对接联网检索，辅助更新行业事实与政策信息
 
-> **Not just asking questions —  
-> but understanding the candidate.**

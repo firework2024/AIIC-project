@@ -1,4 +1,5 @@
 from utils.llm_client import call_llm
+from difflib import SequenceMatcher
 from config.prompts import (
     INTERVIEW_QUESTION_SCOPE_RULES,
     LANGUAGE_RULES,
@@ -55,8 +56,48 @@ def sanitize_question(text: str) -> str:
     return final_text
 
 
-def finalize_question(text: str, role: str, topic: str, question_focus: str = "") -> str:
-    return sanitize_question(text)
+def is_ineffective_answer(answer: str, evaluation: dict | None = None) -> bool:
+    text = str(answer or "").strip().lower()
+    if evaluation and float(evaluation.get("score", 10) or 0) <= 2:
+        return True
+    if len(text) < 15:
+        return True
+    return any(token in text for token in ("don't know", "dont know", "skip", "不知道", "不清楚", "不会", "跳过"))
+
+
+def question_similarity(left: str, right: str) -> float:
+    def compact(value):
+        return "".join(str(value or "").lower().split())
+
+    a = compact(left)
+    b = compact(right)
+    if not a or not b:
+        return 0
+    return SequenceMatcher(None, a, b).ratio()
+
+
+def guided_fallback_question(role: str, topic: str, question_focus: str = "") -> str:
+    if "简历" in question_focus:
+        return "刚才这个经历没有展开清楚。我们先降一步：请只选一个你亲自做过的动作，说明当时目标是什么、你怎么做、最后产生了什么结果？"
+    if "作品" in question_focus:
+        return "刚才没有形成有效回答。我们先聚焦作品本身：请指出你这份作品里最关键的一个假设，并说明如果这个假设不成立，你的结论会怎样变化？"
+    if "业务" in question_focus or "压力" in question_focus:
+        return "刚才没有形成有效判断。我们先拆小一点：在这个业务场景里，你会优先验证哪一个事实或指标，为什么它会决定你的下一步动作？"
+    return f"刚才没有形成有效回答。我们先换一个更小的问题：围绕{role}的{topic}场景，你会先看哪一个关键指标或证据来做判断，并说明理由？"
+
+
+def finalize_question(
+    text: str,
+    role: str,
+    topic: str,
+    question_focus: str = "",
+    previous_questions: list[str] | None = None,
+) -> str:
+    question = sanitize_question(text)
+    for previous in previous_questions or []:
+        if question_similarity(question, previous) >= 0.72:
+            return guided_fallback_question(role, topic, question_focus)
+    return question
 
 
 def generate_business_context(role: str, topic: str, jd_text: str) -> str:
@@ -113,8 +154,10 @@ def generate_next_question(
     jd_text: str = "",
     business_context: str = "",
     pressure_index: int = 5,
+    evaluation_history: list | None = None,
 ) -> str:
     question_number = len(qa_history) + 1
+    evaluation_history = evaluation_history or []
 
     if question_number <= 2:
         phase = "热身"
@@ -127,7 +170,22 @@ def generate_next_question(
     if qa_history:
         history = ""
         for i, qa in enumerate(qa_history, start=1):
-            history += f"Q{i}: {qa['question']}\nA{i}: {qa['answer']}\n\n"
+            evaluation = evaluation_history[i - 1] if i - 1 < len(evaluation_history) else {}
+            answer_status = "无效回答，需要降阶引导" if is_ineffective_answer(qa.get("answer", ""), evaluation) else "有效回答"
+            history += f"Q{i}: {qa['question']}\nA{i}: {qa['answer']}\n回答状态: {answer_status}\n\n"
+
+    previous_questions = [qa.get("question", "") for qa in qa_history if qa.get("question")]
+    last_evaluation = evaluation_history[-1] if evaluation_history else {}
+    last_answer = qa_history[-1].get("answer", "") if qa_history else ""
+    last_was_ineffective = bool(qa_history) and is_ineffective_answer(last_answer, last_evaluation)
+    if last_was_ineffective:
+        history += (
+            "\n下一题调整要求：上一题候选人没有给出有效回复。"
+            "不要重复上一题，不要换个说法继续问同一个判断。"
+            "请降阶引导，把问题拆成一个更小、更容易现场回答的入口，"
+            "例如先问一个关键指标、一个判断依据、一个优先验证事实或一个亲自做过的动作。"
+            "仍然保持真实面试语气，不要教学或给答案。\n"
+        )
 
     safe_jd = (jd_text or "未提供JD。请根据所选岗位方向和业务主题出题。")[:5000]
 
@@ -141,7 +199,7 @@ def generate_next_question(
             work_sample_text=work_sample_text[:9000],
             history=history,
         )
-        return finalize_question(call_llm(prompt), role, topic, "作品答辩")
+        return finalize_question(call_llm(prompt), role, topic, "作品答辩", previous_questions)
 
     if interview_mode == "business":
         prompt = BUSINESS_SIMULATION_PROMPT.format(
@@ -157,7 +215,7 @@ def generate_next_question(
             competence_summary=competence_summary,
             history=history,
         )
-        return finalize_question(call_llm(prompt), role, topic, "业务模拟场景")
+        return finalize_question(call_llm(prompt), role, topic, "业务模拟场景", previous_questions)
 
     if interview_mode == "mixed" and should_force_resume_question(interview_mode, question_number, bool(resume_text)):
         prompt = RESUME_QUESTION_PROMPT.format(
@@ -169,7 +227,7 @@ def generate_next_question(
             resume_text=resume_text,
             history=history,
         )
-        return finalize_question(call_llm(prompt), role, topic, "简历深挖")
+        return finalize_question(call_llm(prompt), role, topic, "简历深挖", previous_questions)
 
     if interview_mode == "mixed":
         question_focus = mixed_question_focus(question_number, bool(resume_text))
@@ -188,7 +246,7 @@ def generate_next_question(
             competence_summary=competence_summary,
             history=history,
         )
-        return finalize_question(call_llm(prompt), role, topic, question_focus)
+        return finalize_question(call_llm(prompt), role, topic, question_focus, previous_questions)
 
     if interview_mode == "normal":
         prompt = RESUME_QUESTION_PROMPT.format(
@@ -200,7 +258,7 @@ def generate_next_question(
             resume_text=resume_text,
             history=history,
         )
-        return finalize_question(call_llm(prompt), role, topic, "简历深挖")
+        return finalize_question(call_llm(prompt), role, topic, "简历深挖", previous_questions)
 
     if should_force_resume_question(interview_mode, question_number, bool(resume_text)):
         prompt = RESUME_QUESTION_PROMPT.format(
@@ -212,7 +270,7 @@ def generate_next_question(
             resume_text=resume_text,
             history=history,
         )
-        return finalize_question(call_llm(prompt), role, topic, "简历深挖")
+        return finalize_question(call_llm(prompt), role, topic, "简历深挖", previous_questions)
 
     prompt = QUESTION_GENERATION_PROMPT.format(
         language_rules=LANGUAGE_RULES,
@@ -227,4 +285,4 @@ def generate_next_question(
         jd_text=safe_jd,
         history=history,
     )
-    return finalize_question(call_llm(prompt), role, topic)
+    return finalize_question(call_llm(prompt), role, topic, "", previous_questions)
