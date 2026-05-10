@@ -6,5 +6,5 @@ health_bp = Blueprint("health", __name__)
 def health_check():
     return jsonify({
         "status": "ok",
-        "message": "AI Mock Interviewer backend is running"
+        "message": "金融模拟面试后端运行中"
     })

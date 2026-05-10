@@ -1,6 +1,7 @@
 from datetime import datetime
+
 from utils.llm_client import call_llm
-from config.prompts import FINAL_REPORT_PROMPT
+from config.prompts import LANGUAGE_RULES, FINAL_REPORT_PROMPT
 
 
 def generate_final_report(
@@ -9,43 +10,44 @@ def generate_final_report(
     confidence,
     estimated_competence,
     qa_history,
-    candidate_name
+    candidate_name,
+    jd_text="",
+    business_context="",
 ):
     history = ""
     for i, qa in enumerate(qa_history, 1):
         history += (
             f"Q{i}: {qa['question']}\n"
-            f"Candidate Answer:\n{qa['answer']}\n\n"
+            f"候选人回答：\n{qa['answer']}\n\n"
         )
 
     prompt = FINAL_REPORT_PROMPT.format(
+        language_rules=LANGUAGE_RULES,
         candidate_name=candidate_name,
-        date=datetime.now().strftime("%d %b %Y"),
+        date=datetime.now().strftime("%Y-%m-%d"),
         role=role,
         topic=topic,
+        jd_text=(jd_text or "未提供JD。")[:5000],
+        business_context=business_context or "无业务模拟上下文。",
         confidence=confidence,
         estimated_competence=estimated_competence,
-        history=history
+        history=history,
     )
 
-    # First attempt
     report = call_llm(prompt)
 
-    # 🔥 SAFETY NET: detect incomplete report
-    if "Actionable Recommendations" not in report or "Final Score" not in report:
+    if "下一步准备建议" not in report or "最终得分" not in report:
         continuation_prompt = (
-            "Continue the SAME interview report EXACTLY from where it stopped.\n"
-            "Do NOT repeat previous sections.\n\n"
-            f"Partial report so far:\n{report}\n\n"
-            "Continue now:"
+            "请用简体中文从中断处继续同一份面试报告。\n"
+            "不要重复已经写过的部分。\n\n"
+            f"目前已有报告：\n{report}\n\n"
+            "请继续："
         )
-
         continuation = call_llm(
             continuation_prompt,
             temperature=0.4,
-            max_tokens=1024
+            max_tokens=1024,
         )
-
         report = report.rstrip() + "\n\n" + continuation.lstrip()
 
     return report

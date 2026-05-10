@@ -22,7 +22,7 @@ export const Select = ({ label, options, value, onChange, className, ...props })
                     )}
                     {...props}
                 >
-                    <option value="" disabled className="bg-slate-900 text-slate-500">Select an option...</option>
+                    <option value="" disabled className="bg-slate-900 text-slate-500">请选择...</option>
                     {options.map((opt) => (
                         <option key={opt.value} value={opt.value} className="bg-slate-900 text-slate-200">
                             {opt.label}

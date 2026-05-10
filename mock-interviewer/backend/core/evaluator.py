@@ -1,7 +1,7 @@
 import json
 import re
 from utils.llm_client import call_llm
-from config.prompts import ANSWER_EVALUATION_PROMPT
+from config.prompts import LANGUAGE_RULES, ANSWER_EVALUATION_PROMPT
 
 SKIP_PHRASES = [
     "don't know",
@@ -9,7 +9,11 @@ SKIP_PHRASES = [
     "do not know",
     "no idea",
     "skip",
-    "not sure"
+    "not sure",
+    "不知道",
+    "不清楚",
+    "跳过",
+    "不会",
 ]
 
 
@@ -31,7 +35,7 @@ def safe_json_parse(text: str) -> dict:
     return json.loads(match.group())
 
 
-def evaluate_answer(role, topic, question, answer):
+def evaluate_answer(role, topic, question, answer, jd_text="", business_context=""):
     # -------------------------------
     # Skipped / empty answer
     # -------------------------------
@@ -41,8 +45,10 @@ def evaluate_answer(role, topic, question, answer):
             "technical_accuracy": 1,
             "communication_clarity": 1,
             "problem_solving": 1,
-            "strengths": "The candidate recognized their uncertainty.",
-            "weaknesses": "Did not attempt to explain the concept. Knowledge gap identified.",
+            "business_judgment": 1,
+            "jd_alignment": 1,
+            "strengths": "候选人能够承认不确定性。",
+            "weaknesses": "没有尝试展开分析，暴露出相关知识或经验缺口。",
             "depth_assessment": "none"
         }
 
@@ -50,8 +56,11 @@ def evaluate_answer(role, topic, question, answer):
     # LLM-based evaluation
     # -------------------------------
     prompt = ANSWER_EVALUATION_PROMPT.format(
+        language_rules=LANGUAGE_RULES,
         role=role,
         topic=topic,
+        jd_text=(jd_text or "未提供JD。")[:5000],
+        business_context=business_context or "无业务模拟上下文。",
         question=question,
         answer=answer
     )
@@ -74,14 +83,19 @@ def evaluate_answer(role, topic, question, answer):
             "score": score,
             "technical_accuracy": parsed.get("technical_accuracy", 5),
             "communication_clarity": parsed.get("communication_clarity", 5),
-            "problem_solving": parsed.get("problem_solving", 5),
+            "problem_solving": parsed.get(
+                "business_judgment",
+                parsed.get("problem_solving", 5)
+            ),
+            "business_judgment": parsed.get("business_judgment", 5),
+            "jd_alignment": parsed.get("jd_alignment", 5),
             "strengths": parsed.get(
                 "strengths",
-                "The candidate demonstrated partial understanding."
+                "候选人展现出部分理解。"
             ),
             "weaknesses": parsed.get(
                 "weaknesses",
-                "Some concepts need clearer explanation."
+                "部分概念或业务判断还需要更清晰地说明。"
             ),
             "depth_assessment": parsed.get(
                 "depth_assessment",
@@ -98,7 +112,9 @@ def evaluate_answer(role, topic, question, answer):
             "technical_accuracy": 5,
             "communication_clarity": 5,
             "problem_solving": 5,
-            "strengths": "The candidate showed a reasonable attempt and partial understanding.",
-            "weaknesses": "Some gaps in explanation or technical depth.",
+            "business_judgment": 5,
+            "jd_alignment": 5,
+            "strengths": "候选人做出了合理尝试，并展现出部分理解。",
+            "weaknesses": "表达、业务判断或岗位相关深度仍有改进空间。",
             "depth_assessment": "surface"
         }

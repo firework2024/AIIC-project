@@ -24,7 +24,7 @@ const languageFromTopic = (topic = "") => {
   return "plaintext";
 };
 
-const TOTAL_QUESTIONS = 5;
+const TOTAL_QUESTIONS = 8;
 const ANSWER_BOX_HEIGHT = 500;
 
 export default function Interview() {
@@ -55,6 +55,7 @@ export default function Interview() {
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "zh-CN";
     utterance.rate = 0.95;
     utterance.pitch = 1;
     utterance.onstart = () => setIsSpeaking(true);
@@ -75,7 +76,7 @@ export default function Interview() {
   useEffect(() => {
     const q = sessionStorage.getItem("current_question");
     if (!q) {
-      setError("Interview session expired. Please restart.");
+      setError("面试会话已失效，请重新开始。");
       return;
     }
     setQuestion(q);
@@ -89,7 +90,7 @@ export default function Interview() {
   -------------------------------- */
   const handleSubmit = async () => {
     if (activeTab === "answer" && !textAnswer.trim() || activeTab === "code" && !codeAnswer.trim()) {
-      setError("Please complete the active section before submitting.");
+      setError("请先完成当前输入区再提交。");
       return;
     }
 
@@ -118,7 +119,7 @@ export default function Interview() {
       setShowTips(false); // Hide tips for new question
 
     } catch (err) {
-      setError(err?.response?.data?.error || "Server error. Please try again.");
+      setError(err?.response?.data?.error || "服务器错误，请稍后重试。");
     } finally {
       setLoading(false);
     }
@@ -132,8 +133,8 @@ export default function Interview() {
       {/* HEADER & PROGRESS */}
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-end text-slate-400 text-sm font-medium">
-          <span>Question {questionIndex + 1} of {TOTAL_QUESTIONS}</span>
-          <span>{Math.round(progressPercent)}% Completed</span>
+          <span>第 {questionIndex + 1} 题 / 共 {TOTAL_QUESTIONS} 题</span>
+          <span>已完成 {Math.round(progressPercent)}%</span>
         </div>
         <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
           <motion.div
@@ -150,7 +151,7 @@ export default function Interview() {
         <div className="flex justify-between items-start gap-4">
           <div className="space-y-4 flex-1">
             <h3 className="text-slate-400 text-xs font-bold uppercase tracking-widest">
-              Interview Question
+              面试问题
             </h3>
             <div className="prose prose-invert max-w-none text-lg leading-relaxed">
               <ReactMarkdown>{question}</ReactMarkdown>
@@ -189,14 +190,14 @@ export default function Interview() {
               className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === "answer" ? "bg-primary text-white shadow-lg" : "text-slate-400 hover:text-white"
                 }`}
             >
-              <FileText className="w-4 h-4" /> Explanation
+              <FileText className="w-4 h-4" /> 文字回答
             </button>
             <button
               onClick={() => setActiveTab("code")}
               className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${activeTab === "code" ? "bg-secondary text-white shadow-lg" : "text-slate-400 hover:text-white"
                 }`}
             >
-              <Code className="w-4 h-4" /> Code Editor
+              <Code className="w-4 h-4" /> 建模/分析笔记
             </button>
           </div>
 
@@ -207,7 +208,7 @@ export default function Interview() {
               className="flex items-center gap-2 text-sm text-yellow-500 hover:text-yellow-400 transition-colors px-3 py-2 rounded-lg hover:bg-yellow-500/10"
             >
               <Lightbulb className="w-4 h-4" />
-              {showTips ? "Hide Tips" : "Tips"}
+              {showTips ? "隐藏提示" : "答题提示"}
             </button>
 
             <Button
@@ -219,11 +220,11 @@ export default function Interview() {
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Evaluating...
+                  评估中...
                 </>
               ) : (
                 <>
-                  Submit <Send className="w-4 h-4 ml-2" />
+                  提交 <Send className="w-4 h-4 ml-2" />
                 </>
               )}
             </Button>
@@ -241,10 +242,10 @@ export default function Interview() {
             >
               <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 text-sm text-yellow-200/80 mb-4">
                 <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <li className="flex gap-2"><span className="text-yellow-500">•</span> Use the STAR method (Situation, Task, Action, Result)</li>
-                  <li className="flex gap-2"><span className="text-yellow-500">•</span> Explain time & space complexity for code</li>
-                  <li className="flex gap-2"><span className="text-yellow-500">•</span> State your assumptions clearly</li>
-                  <li className="flex gap-2"><span className="text-yellow-500">•</span> Focus on the 'why', not just the 'how'</li>
+                  <li className="flex gap-2"><span className="text-yellow-500">•</span> 用“背景-分析-建议-风险”组织回答</li>
+                  <li className="flex gap-2"><span className="text-yellow-500">•</span> 主动联系 JD 和目标金融岗位</li>
+                  <li className="flex gap-2"><span className="text-yellow-500">•</span> 做估值、市场或客户判断前先说明假设</li>
+                  <li className="flex gap-2"><span className="text-yellow-500">•</span> 尽量使用交易、市场、研究、数据或实习中的具体例子</li>
                 </ul>
               </div>
             </motion.div>
@@ -258,7 +259,7 @@ export default function Interview() {
               value={textAnswer}
               onChange={(e) => setTextAnswer(e.target.value)}
               className="w-full h-full min-h-[500px] bg-transparent p-6 text-slate-200 resize-none focus:outline-none placeholder:text-slate-600 leading-relaxed text-lg font-sans"
-              placeholder="Type your explanation here..."
+              placeholder="请在这里输入你的中文回答..."
               autoFocus
             />
           ) : (

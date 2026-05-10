@@ -6,7 +6,13 @@ RESUME_KEYWORDS = [
     "skills",
     "projects",
     "internship",
-    "certification"
+    "certification",
+    "教育",
+    "经历",
+    "实习",
+    "项目",
+    "技能",
+    "证书",
 ]
 
 
@@ -24,15 +30,16 @@ def is_valid_resume(file):
     """
     try:
         text = extract_text_from_pdf(file)
+        compact_text = text.replace(" ", "")
 
         if len(text.strip()) < 300:
-            return False, "Resume content is too short."
+            return False, "简历内容太短，无法有效解析。"
 
-        hits = sum(1 for k in RESUME_KEYWORDS if k in text)
+        hits = sum(1 for k in RESUME_KEYWORDS if k in text or k in compact_text)
         if hits < 2:
-            return False, "Document does not appear to be a valid resume."
+            return False, "该文件看起来不像有效简历。"
 
         return True, text
 
     except Exception:
-        return False, "Unable to read resume file."
+        return False, "无法读取简历文件。"
