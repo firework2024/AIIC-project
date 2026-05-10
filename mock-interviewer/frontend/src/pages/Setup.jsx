@@ -70,6 +70,7 @@ export default function Setup() {
 
             sessionStorage.setItem("session_id", res.data.session_id);
             sessionStorage.setItem("current_question", res.data.question);
+            sessionStorage.setItem("candidate_name", formData.name);
             sessionStorage.setItem("topic", formData.topic || "Project");
             sessionStorage.setItem("target_role", formData.role);
             sessionStorage.setItem("interview_mode", formData.mode);

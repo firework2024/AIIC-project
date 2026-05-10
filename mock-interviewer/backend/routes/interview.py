@@ -11,7 +11,11 @@ from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from core.question_generator import generate_business_context, generate_next_question
 from core.evaluator import evaluate_answer
 from core.competence_estimator import estimate_competence
-from core.report_generator import generate_final_report
+from core.report_generator import (
+    calculate_final_score,
+    collect_knowledge_gaps,
+    generate_final_report,
+)
 from utils.resume_validator import is_valid_resume
 from utils.github_fetcher import (
     is_valid_github_url,
@@ -217,7 +221,9 @@ def submit_answer():
     )
 
     if session["question_count"] >= MAX_QUESTIONS:
-        estimated_competence = competence.get("estimated_competence", session["confidence"])
+        final_score = calculate_final_score(session["evaluation_history"])
+        estimated_competence = competence.get("estimated_competence", final_score)
+        knowledge_gaps, study_cards = collect_knowledge_gaps(session["evaluation_history"])
         try:
             report = generate_final_report(
                 session["role"],
@@ -227,16 +233,27 @@ def submit_answer():
                 session["qa_history"],
                 session["name"],
                 session.get("jd_text", ""),
-                session.get("business_context", "")
+                session.get("business_context", ""),
+                session["evaluation_history"],
             )
             if not report or report.startswith("LLM Error:"):
-                report = build_fallback_report(session, estimated_competence)
+                report = build_fallback_report(session, final_score)
         except Exception:
-            report = build_fallback_report(session, estimated_competence)
+            report = build_fallback_report(session, final_score)
         return jsonify({
             "done": True, 
             "report": report,
-            "evaluation_history": session["evaluation_history"]
+            "final_score": final_score,
+            "qa_history": session["qa_history"],
+            "evaluation_history": session["evaluation_history"],
+            "knowledge_gaps": knowledge_gaps,
+            "study_cards": study_cards,
+            "metadata": {
+                "name": session["name"],
+                "role": session["role"],
+                "topic": session["topic"],
+                "mode": session["interview_mode"],
+            }
         }), 200
 
     next_question = generate_next_question(

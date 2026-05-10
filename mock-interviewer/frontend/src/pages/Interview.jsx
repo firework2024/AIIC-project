@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Mic, Square, Send, Code, FileText, AlertCircle, Loader2, Sparkles, ChevronDown, ChevronUp, Lightbulb } from "lucide-react";
+import { saveInterviewRecord } from "../utils/interviewStorage";
 
 /* -------------------------------
    Language mapping
@@ -102,9 +103,29 @@ export default function Interview() {
       const res = await submitAnswer({ session_id: sessionId, answer: combinedAnswer });
 
       if (res.data.done) {
+        const metadata = res.data.metadata || {};
+        const record = saveInterviewRecord({
+          id: sessionId,
+          name: metadata.name || sessionStorage.getItem("candidate_name") || "",
+          mode: metadata.mode || sessionStorage.getItem("interview_mode") || "",
+          role: metadata.role || sessionStorage.getItem("target_role") || "",
+          topic: metadata.topic || sessionStorage.getItem("topic") || "",
+          finalScore: res.data.final_score,
+          report: res.data.report,
+          qaHistory: res.data.qa_history || [],
+          evaluationHistory: res.data.evaluation_history || [],
+          knowledgeGaps: res.data.knowledge_gaps || [],
+          studyCards: res.data.study_cards || [],
+        });
+
         sessionStorage.removeItem("current_question");
         sessionStorage.setItem("final_report", res.data.report);
+        sessionStorage.setItem("final_score", JSON.stringify(res.data.final_score));
+        sessionStorage.setItem("qa_history", JSON.stringify(res.data.qa_history || []));
         sessionStorage.setItem("evaluation_history", JSON.stringify(res.data.evaluation_history));
+        sessionStorage.setItem("knowledge_gaps", JSON.stringify(res.data.knowledge_gaps || []));
+        sessionStorage.setItem("study_cards", JSON.stringify(res.data.study_cards || []));
+        sessionStorage.setItem("history_record_id", record.id);
         navigate(`/report/${sessionId}`);
         return;
       }

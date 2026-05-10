@@ -27,6 +27,9 @@ export default function Layout({ children }) {
             <Link to="/" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
               首页
             </Link>
+            <Link to="/history" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
+              历史
+            </Link>
             <a href="https://github.com" target="_blank" rel="noreferrer" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
               GitHub
             </a>

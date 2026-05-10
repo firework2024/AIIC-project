@@ -245,6 +245,15 @@ JD：
   "jd_alignment": 0到10之间的数字,
   "strengths": "中文说明候选人做得好的地方",
   "weaknesses": "中文说明差距或改进建议",
+  "knowledge_gaps": ["如果这题是知识性、技术性或业务概念题，列出候选人遗漏或混淆的明确知识点；如果没有则为空数组"],
+  "study_cards": [
+    {{
+      "title": "知识点名称",
+      "summary": "用中文解释这个知识点是什么",
+      "why_it_matters": "说明它为什么对该岗位面试重要",
+      "review_prompt": "给候选人的复习或自测问题"
+    }}
+  ],
   "depth_assessment": "none | surface | moderate | deep"
 }}
 """

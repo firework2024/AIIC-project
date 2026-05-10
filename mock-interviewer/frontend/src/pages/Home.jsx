@@ -33,9 +33,11 @@ export default function Home() {
               开始模拟面试
             </Button>
           </Link>
-          {/* <Button variant="outline" className="w-full sm:w-auto">
-            View Demo
-          </Button> */}
+          <Link to="/history">
+            <Button size="lg" variant="outline" className="w-full sm:w-auto min-w-[160px] text-lg">
+              查看历史
+            </Button>
+          </Link>
         </div>
       </div>
 
