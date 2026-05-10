@@ -1,4 +1,8 @@
+import json
+import re
 from datetime import datetime
+
+from utils.llm_client import call_llm
 
 GENERIC_KNOWLEDGE_TITLES = {
     "题目相关核心概念",
@@ -100,6 +104,73 @@ def collect_knowledge_gaps(evaluation_history):
     return gaps, cards
 
 
+def select_display_study_cards(study_cards, max_cards=6):
+    if len(study_cards) <= max_cards:
+        return study_cards
+
+    titles = [
+        {
+            "index": index,
+            "question_index": card.get("question_index"),
+            "title": card.get("title", ""),
+        }
+        for index, card in enumerate(study_cards, start=1)
+        if card.get("title")
+    ]
+    if len(titles) <= max_cards:
+        return study_cards[:max_cards]
+
+    prompt = f"""
+你是金融行业面试复盘教练。下面是一次模拟面试后识别出的遗漏知识点卡片标题。
+请从中挑出最值得优先展示给候选人的 {max_cards} 个。
+
+选择标准：
+1. 优先选择金融面试中最核心、最可迁移、最影响岗位胜任力的知识点。
+2. 覆盖不同能力维度，避免 6 个卡片高度同质化。
+3. 如果有重复或近义标题，只保留更具体、更专业的一个。
+4. 不要新增知识点，只能从给定列表中选择。
+
+候选卡片：
+{json.dumps(titles, ensure_ascii=False)}
+
+请只返回 JSON，格式为：
+{{"selected_indices":[1,2,3,4,5,6]}}
+"""
+    response = call_llm(prompt, temperature=0.2, max_tokens=500)
+    selected_indices = []
+    try:
+        match = re.search(r"\{.*\}", response or "", re.S)
+        data = json.loads(match.group(0) if match else response)
+        selected_indices = data.get("selected_indices", [])
+    except Exception:
+        selected_indices = []
+
+    selected = []
+    seen = set()
+    for raw_index in selected_indices:
+        try:
+            index = int(raw_index)
+        except (TypeError, ValueError):
+            continue
+        if index < 1 or index > len(study_cards) or index in seen:
+            continue
+        seen.add(index)
+        selected.append(study_cards[index - 1])
+        if len(selected) >= max_cards:
+            break
+
+    if len(selected) < max_cards:
+        for card in study_cards:
+            key = normalize_card_key(card.get("title", ""))
+            if key in {normalize_card_key(item.get("title", "")) for item in selected}:
+                continue
+            selected.append(card)
+            if len(selected) >= max_cards:
+                break
+
+    return selected[:max_cards]
+
+
 def generate_final_report(
     role,
     topic,
@@ -118,12 +189,13 @@ def generate_final_report(
 
     verdict = verdict_for_score(final_score)
     knowledge_gaps, study_cards = collect_knowledge_gaps(evaluation_history)
+    display_study_cards = select_display_study_cards(study_cards)
 
     lines = [
         "1. 最终得分与结论",
         f"- 最终得分：{final_score}/10",
         f"- 结论：{verdict}",
-        f"- 候选人自评准备度：{confidence}/10",
+        f"- 模拟试题难度：{confidence}/10",
         f"- 面试日期：{datetime.now().strftime('%Y-%m-%d')}",
         f"- 候选人：{candidate_name}",
         f"- 目标方向：{role} / {topic}",
@@ -166,8 +238,8 @@ def generate_final_report(
         lines.append("- 暂未识别到明确知识点缺口。")
 
     lines.extend(["", "6. 插卡式知识库"])
-    if study_cards:
-        for card in study_cards:
+    if display_study_cards:
+        for card in display_study_cards:
             lines.extend([
                 f"知识卡片：{card['title']}",
                 f"- 来源题目：第 {card['question_index']} 题",

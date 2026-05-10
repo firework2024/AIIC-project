@@ -47,13 +47,18 @@ export default function Report() {
   );
   const sessionRecord = useMemo(() => ({
     studyCards: readSessionJson("study_cards", []),
+    displayStudyCards: readSessionJson("display_study_cards", []),
     knowledgeGaps: readSessionJson("knowledge_gaps", []),
     evaluationHistory: readSessionJson("evaluation_history", []),
   }), []);
   const displayRecord = savedRecord || sessionRecord;
   const studyCards = useMemo(
-    () => normalizeStudyCards(displayRecord),
-    [displayRecord]
+    () => {
+      const selectedCards = savedRecord?.displayStudyCards || savedRecord?.display_study_cards || sessionRecord.displayStudyCards;
+      const normalizedSelected = normalizeStudyCards({ studyCards: selectedCards });
+      return normalizedSelected.length ? normalizedSelected : normalizeStudyCards(displayRecord).slice(0, 6);
+    },
+    [displayRecord, savedRecord, sessionRecord]
   );
   const knowledgeGaps = useMemo(
     () => normalizeKnowledgeGaps(displayRecord),

@@ -16,6 +16,11 @@ export const submitAnswer = (payload) =>
 export const clarifyQuestion = (payload) =>
   axios.post(`${API}/interview/clarify`, payload);
 
+export const transcribeAudio = (formData) =>
+  axios.post(`${API}/interview/transcribe`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+
 export const downloadReportPdf = (report) =>
   axios.post(
     `${API}/interview/report/pdf`,

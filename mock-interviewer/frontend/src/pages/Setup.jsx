@@ -6,18 +6,49 @@ import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { fetchTopics, startInterview } from "../services/api";
-import { BarChart3, BriefcaseBusiness, Building2, FileText, Loader2, Shuffle, Timer, Upload, UserRound, Zap } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, FileText, Loader2, Shuffle, Timer, Upload, UserRound, Zap } from "lucide-react";
 
 const ROLE_OPTIONS = [
-    { label: "一级市场：投行与资本市场", value: "投资银行" },
-    { label: "二级市场：销售交易与产品", value: "二级市场与交易" },
-    { label: "买方投资：资管与财富管理", value: "资产与财富管理" },
-    { label: "投研分析：行业、公司与宏观", value: "研究" },
-    { label: "股权投资：PE / VC / 另类资产", value: "私募与另类投资" },
-    { label: "风险治理：风控、合规与运营", value: "风控、合规与运营" },
-    { label: "企业端：公司金融与战略财务", value: "公司金融与战略" },
-    { label: "金融科技：量化、数据与产品", value: "金融科技与数据" },
+    { label: "投行承销与并购顾问", value: "投资银行" },
+    { label: "证券销售交易与市场产品", value: "二级市场与交易" },
+    { label: "资产管理与财富管理", value: "资产与财富管理" },
+    { label: "卖方研究与投研分析", value: "研究" },
+    { label: "私募股权、创投与另类资产", value: "私募与另类投资" },
+    { label: "风险管理、合规与金融运营", value: "风控、合规与运营" },
+    { label: "公司金融、司库与战略财务", value: "公司金融与战略" },
+    { label: "金融科技、量化与数据产品", value: "金融科技与数据" },
 ];
+
+const DIFFICULTY_OPTIONS = [
+    { label: "易", value: 3, description: "基础问法，适合热身" },
+    { label: "中", value: 6, description: "标准校招面试强度" },
+    { label: "难", value: 9, description: "更接近高压终面" },
+];
+
+const PRESSURE_OPTIONS = [
+    { label: "易", value: 3, description: "语气温和，追问较少" },
+    { label: "中", value: 6, description: "正常面试压力，适度追问" },
+    { label: "难", value: 9, description: "压力面强度，更犀利且追问更密集" },
+];
+
+const MODE_DESCRIPTIONS = {
+    normal: "只围绕上传简历连续追问 8 题，重点考察实习、项目、研究、比赛和行为证据。",
+    business: "根据 JD 生成金融业务场景，让你以目标岗位身份处理一个现场可回答的业务判断。",
+    mixed: "综合覆盖简历深挖、业务模拟、金融 technical、数据分析、沟通协作和压力追问。",
+    project: "解析行研报告、PPT 或投资备忘录，围绕假设、证据链、数据质量和结论稳健性提问。",
+};
+
+const MODE_HINT_ALIGN = {
+    left: "left-0",
+    center: "left-1/2 -translate-x-1/2",
+    right: "right-0",
+};
+
+const ModeHint = ({ children, align = "center" }) => (
+    <span className={`pointer-events-none absolute top-full z-30 mt-3 w-72 max-w-[calc(100vw-3rem)] rounded-xl border border-slate-700 bg-slate-950/95 px-4 py-3 text-left text-xs leading-relaxed text-slate-200 opacity-0 shadow-2xl shadow-black/40 backdrop-blur transition-all duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 ${MODE_HINT_ALIGN[align]}`}>
+        {children}
+    </span>
+);
 
 export default function Setup() {
     const navigate = useNavigate();
@@ -35,7 +66,7 @@ export default function Setup() {
         workSample: null,
         jdText: "",
         timeLimitMinutes: 20,
-        pressureIndex: 5,
+        pressureIndex: 6,
     });
 
     const getTopicOptionsForRole = (role) => {
@@ -44,6 +75,9 @@ export default function Setup() {
     };
 
     const selectedRoleLabel = ROLE_OPTIONS.find((option) => option.value === formData.role)?.label || formData.role;
+    const selectedDifficulty = DIFFICULTY_OPTIONS.find((option) => option.value === formData.confidence) || DIFFICULTY_OPTIONS[1];
+    const selectedPressure = PRESSURE_OPTIONS.find((option) => option.value === formData.pressureIndex) || PRESSURE_OPTIONS[1];
+    const timeLimitPercent = (formData.timeLimitMinutes / 60) * 100;
 
     const handleRoleChange = (role) => {
         const nextTopics = topics[role] || [];
@@ -134,43 +168,47 @@ export default function Setup() {
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <button
                             onClick={() => setFormData({ ...formData, mode: "normal" })}
-                            className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${formData.mode === "normal"
+                            className={`group relative p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${formData.mode === "normal"
                                 ? "bg-primary/20 border-primary text-white"
                                 : "bg-slate-900/50 border-slate-700 text-slate-400 hover:bg-slate-800"
                                 }`}
                         >
                             <UserRound className="w-6 h-6" />
                             <span className="font-medium">简历深挖</span>
+                            <ModeHint align="left">{MODE_DESCRIPTIONS.normal}</ModeHint>
                         </button>
                         <button
                             onClick={() => setFormData({ ...formData, mode: "business" })}
-                            className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${formData.mode === "business"
+                            className={`group relative p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${formData.mode === "business"
                                 ? "bg-secondary/20 border-secondary text-white"
                                 : "bg-slate-900/50 border-slate-700 text-slate-400 hover:bg-slate-800"
                                 }`}
                         >
                             <BriefcaseBusiness className="w-6 h-6" />
                             <span className="font-medium">业务模拟</span>
+                            <ModeHint>{MODE_DESCRIPTIONS.business}</ModeHint>
                         </button>
                         <button
                             onClick={() => setFormData({ ...formData, mode: "mixed" })}
-                            className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${formData.mode === "mixed"
+                            className={`group relative p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${formData.mode === "mixed"
                                 ? "bg-emerald-500/20 border-emerald-400 text-white"
                                 : "bg-slate-900/50 border-slate-700 text-slate-400 hover:bg-slate-800"
                                 }`}
                         >
                             <Shuffle className="w-6 h-6" />
                             <span className="font-medium">混合面试</span>
+                            <ModeHint>{MODE_DESCRIPTIONS.mixed}</ModeHint>
                         </button>
                         <button
                             onClick={() => setFormData({ ...formData, mode: "project" })}
-                            className={`p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${formData.mode === "project"
+                            className={`group relative p-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${formData.mode === "project"
                                 ? "bg-accent/20 border-accent text-white"
                                 : "bg-slate-900/50 border-slate-700 text-slate-400 hover:bg-slate-800"
                                 }`}
                         >
                             <FileText className="w-6 h-6" />
                             <span className="font-medium">作品答辩</span>
+                            <ModeHint align="right">{MODE_DESCRIPTIONS.project}</ModeHint>
                         </button>
                     </div>
 
@@ -270,90 +308,81 @@ export default function Setup() {
                         </motion.div>
                     )}
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/30 p-4">
                         <div className="flex justify-between text-sm text-slate-400">
-                            <label>自评准备度</label>
-                            <span>{formData.confidence}/10</span>
+                            <label className="inline-flex items-center gap-2"><Timer className="w-4 h-4" />面试限时</label>
                         </div>
-                        <input
-                            type="range"
-                            min="1"
-                            max="10"
-                            value={formData.confidence}
-                            onChange={(e) => setFormData({ ...formData, confidence: parseInt(e.target.value, 10) })}
-                            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-primary-hover"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/30 p-4">
-                            <div className="flex justify-between text-sm text-slate-400">
-                                <label className="inline-flex items-center gap-2"><Timer className="w-4 h-4" />面试限时</label>
-                                <span>{formData.timeLimitMinutes} 分钟</span>
-                            </div>
+                        <div className="relative pt-5">
+                            <span
+                                className="absolute top-0 -translate-x-1/2 text-xs font-medium text-white"
+                                style={{ left: `${timeLimitPercent}%` }}
+                            >
+                                {formData.timeLimitMinutes} 分钟
+                            </span>
                             <input
                                 type="range"
-                                min="5"
+                                min="0"
                                 max="60"
                                 step="5"
                                 value={formData.timeLimitMinutes}
                                 onChange={(e) => setFormData({ ...formData, timeLimitMinutes: parseInt(e.target.value, 10) })}
-                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-white"
                             />
                         </div>
-
-                        <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/30 p-4">
-                            <div className="flex justify-between text-sm text-slate-400">
-                                <label className="inline-flex items-center gap-2"><Zap className="w-4 h-4" />压力面指数</label>
-                                <span>{formData.pressureIndex}/10</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="1"
-                                max="10"
-                                value={formData.pressureIndex}
-                                onChange={(e) => setFormData({ ...formData, pressureIndex: parseInt(e.target.value, 10) })}
-                                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-red-400"
-                            />
-                            <p className="text-xs text-slate-500">指数越高，问题更犀利，追问更密集，更可能出现强硬质疑。</p>
+                        <div className="flex justify-between text-[11px] text-slate-500">
+                            <span>0 分钟</span>
+                            <span>30 分钟</span>
+                            <span>60 分钟</span>
                         </div>
                     </div>
 
-                    {formData.mode === "business" && (
-                        <div className="flex items-start gap-3 rounded-xl border border-secondary/20 bg-secondary/10 p-4 text-sm text-slate-300">
-                            <Building2 className="w-5 h-5 text-secondary mt-0.5 shrink-0" />
-                            <p>
-                                业务模拟会根据 JD 生成面试官人设和金融业务场景，并围绕场景追问。
-                            </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/30 p-4">
+                            <div className="flex justify-between text-sm text-slate-400">
+                                <label className="inline-flex items-center gap-2"><BarChart3 className="w-4 h-4" />模拟试题难度</label>
+                                <span>{selectedDifficulty.label}</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                                {DIFFICULTY_OPTIONS.map((option) => (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, confidence: option.value })}
+                                        className={`rounded-lg border px-3 py-2 text-sm font-medium transition-all ${formData.confidence === option.value
+                                            ? "border-primary bg-primary/20 text-white"
+                                            : "border-slate-700 bg-slate-900/60 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                                            }`}
+                                    >
+                                        {option.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-slate-500">{selectedDifficulty.description}</p>
                         </div>
-                    )}
 
-                    {formData.mode === "mixed" && (
-                        <div className="flex items-start gap-3 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-slate-300">
-                            <Shuffle className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
-                            <p>
-                                混合面试共 8 题；如果上传简历，前 4 题连续简历深挖，后 4 题覆盖业务模拟、金融 technical、数据分析、沟通协作和压力追问。
-                            </p>
+                        <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/30 p-4">
+                            <div className="flex justify-between text-sm text-slate-400">
+                                <label className="inline-flex items-center gap-2"><Zap className="w-4 h-4" />压力面指数</label>
+                                <span>{selectedPressure.label}</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                                {PRESSURE_OPTIONS.map((option) => (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, pressureIndex: option.value })}
+                                        className={`rounded-lg border px-3 py-2 text-sm font-medium transition-all ${formData.pressureIndex === option.value
+                                            ? "border-red-400 bg-red-400/20 text-white"
+                                            : "border-slate-700 bg-slate-900/60 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                                            }`}
+                                    >
+                                        {option.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-slate-500">{selectedPressure.description}</p>
                         </div>
-                    )}
-
-                    {formData.mode === "normal" && (
-                        <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/10 p-4 text-sm text-slate-300">
-                            <BarChart3 className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-                            <p>
-                                简历深挖共 8 题，只围绕你上传的简历连续追问，重点拷打实习、项目、比赛、研究和行为证据，不会切到别的题型。
-                            </p>
-                        </div>
-                    )}
-
-                    {formData.mode === "project" && (
-                        <div className="flex items-start gap-3 rounded-xl border border-accent/20 bg-accent/10 p-4 text-sm text-slate-300">
-                            <FileText className="w-5 h-5 text-accent mt-0.5 shrink-0" />
-                            <p>
-                                作品答辩会解析你上传的行研报告、PPT 或投资分析材料，围绕假设、证据链、数据质量、风险和结论稳健性提问。
-                            </p>
-                        </div>
-                    )}
+                    </div>
 
                     {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 

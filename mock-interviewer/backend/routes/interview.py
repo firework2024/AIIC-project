@@ -1,8 +1,15 @@
 from flask import Blueprint, request, jsonify, send_file
+import base64
 import uuid
 import io
+import json
+import os
+import subprocess
+import tempfile
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from flask_cors import cross_origin
+import requests
 
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
@@ -16,6 +23,7 @@ from core.report_generator import (
     calculate_final_score,
     collect_knowledge_gaps,
     generate_final_report,
+    select_display_study_cards,
 )
 from config.prompts import CLARIFICATION_PROMPT, LANGUAGE_RULES
 from utils.llm_client import call_llm
@@ -42,6 +50,28 @@ def parse_int(value, default, low, high):
     except (TypeError, ValueError):
         number = default
     return max(low, min(high, number))
+
+
+def convert_audio_to_wav(input_path, wav_path):
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            str(input_path),
+            "-ac",
+            "1",
+            "-ar",
+            "16000",
+            "-f",
+            "wav",
+            str(wav_path),
+        ],
+        check=True,
+    )
 
 
 def build_zero_evaluation(reason):
@@ -81,6 +111,7 @@ def finish_interview(session, timeout=False):
     final_score = calculate_final_score(session["evaluation_history"])
     estimated_competence = final_score
     knowledge_gaps, study_cards = collect_knowledge_gaps(session["evaluation_history"])
+    display_study_cards = select_display_study_cards(study_cards)
     try:
         report = generate_final_report(
             session["role"],
@@ -108,6 +139,7 @@ def finish_interview(session, timeout=False):
         "evaluation_history": session["evaluation_history"],
         "knowledge_gaps": knowledge_gaps,
         "study_cards": study_cards,
+        "display_study_cards": display_study_cards,
         "metadata": {
             "name": session["name"],
             "role": session["role"],
@@ -293,6 +325,75 @@ def format_clarification_history(clarifications):
 
 def safe_prompt_text(text):
     return str(text or "").replace("<", "＜").replace(">", "＞")
+
+
+@interview_bp.route("/transcribe", methods=["POST"])
+def transcribe_audio():
+    api_key = os.getenv("VOLCENGINE_API_KEY")
+    if not api_key:
+        return jsonify({"error": "VOLCENGINE_API_KEY is not configured"}), 500
+
+    audio_file = request.files.get("audio")
+    if not audio_file:
+        return jsonify({"error": "请先录制语音"}), 400
+
+    resource_id = os.getenv("VOLCENGINE_ASR_RESOURCE_ID", "volc.bigasr.auc_turbo")
+
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            input_path = temp_path / "input_audio"
+            wav_path = temp_path / "speech.wav"
+            audio_file.save(input_path)
+            convert_audio_to_wav(input_path, wav_path)
+            wav_base64 = base64.b64encode(wav_path.read_bytes()).decode("ascii")
+    except FileNotFoundError:
+        return jsonify({"error": "服务器缺少 ffmpeg，无法转换浏览器录音"}), 500
+    except subprocess.CalledProcessError as exc:
+        return jsonify({"error": f"音频转换失败：{exc}"}), 400
+
+    payload = {
+        "user": {"uid": "aiic-mock-interviewer"},
+        "audio": {"data": wav_base64},
+        "request": {"model_name": "bigmodel"},
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "X-Api-Key": api_key,
+        "X-Api-Resource-Id": resource_id,
+        "X-Api-Request-Id": str(uuid.uuid4()),
+        "X-Api-Sequence": "-1",
+    }
+
+    try:
+        response = requests.post(
+            "https://openspeech.bytedance.com/api/v3/auc/bigmodel/recognize/flash",
+            headers=headers,
+            data=json.dumps(payload).encode("utf-8"),
+            timeout=90,
+        )
+    except requests.RequestException as exc:
+        return jsonify({"error": f"语音识别请求失败：{exc}"}), 502
+
+    try:
+        data = response.json() if response.content else {}
+    except ValueError:
+        data = {}
+
+    if response.status_code >= 400:
+        return jsonify({"error": data or response.text[:700] or "语音识别接口返回错误"}), 502
+
+    status_code = response.headers.get("X-Api-Status-Code")
+    status_message = response.headers.get("X-Api-Message")
+    if status_code not in {"20000000", "20000003"}:
+        return jsonify({"error": status_message or data or "语音识别失败"}), 502
+
+    text = (data.get("result") or {}).get("text", "").strip()
+    return jsonify({
+        "text": text,
+        "status_code": status_code,
+        "status_message": status_message,
+    }), 200
 
 
 @interview_bp.route("/clarify", methods=["POST"])
