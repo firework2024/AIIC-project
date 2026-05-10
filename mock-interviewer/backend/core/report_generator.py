@@ -6,9 +6,6 @@ GENERIC_KNOWLEDGE_TITLES = {
     "岗位相关核心概念",
 }
 
-MAX_STUDY_CARDS_PER_INTERVIEW = 6
-
-
 def normalize_card_key(title):
     key = str(title or "").lower().strip()
     for left, right in (("（", "）"), ("(", ")")):
@@ -58,9 +55,7 @@ def collect_knowledge_gaps(evaluation_history):
     def add_fallback_card(question_index, title):
         if title in GENERIC_KNOWLEDGE_TITLES:
             return
-        if len(cards) >= MAX_STUDY_CARDS_PER_INTERVIEW:
-            return
-        key = normalize_card_key(title)
+        key = f"{question_index}:{normalize_card_key(title)}"
         if key in seen_cards:
             return
         seen_cards.add(key)
@@ -87,9 +82,7 @@ def collect_knowledge_gaps(evaluation_history):
             title = str(card.get("title", "")).strip()
             if not title or title in GENERIC_KNOWLEDGE_TITLES:
                 continue
-            if len(cards) >= MAX_STUDY_CARDS_PER_INTERVIEW:
-                continue
-            key = normalize_card_key(title)
+            key = f"{index}:{normalize_card_key(title)}"
             if key in seen_cards:
                 continue
             seen_cards.add(key)
@@ -174,7 +167,7 @@ def generate_final_report(
 
     lines.extend(["", "6. 插卡式知识库"])
     if study_cards:
-        for card in study_cards[:12]:
+        for card in study_cards:
             lines.extend([
                 f"知识卡片：{card['title']}",
                 f"- 来源题目：第 {card['question_index']} 题",

@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import { downloadReportPdf } from "../services/api";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
-import { getInterviewRecord } from "../utils/interviewStorage";
+import { getInterviewRecord, normalizeKnowledgeGaps, normalizeStudyCards } from "../utils/interviewStorage";
 import { Download, RotateCcw, Award, CheckCircle, AlertTriangle, Zap, Target, Brain, BookOpen } from "lucide-react";
 
 function getVerdict(score) {
@@ -45,13 +45,19 @@ export default function Report() {
     () => savedRecord?.qaHistory || readSessionJson("qa_history", []),
     [savedRecord]
   );
+  const sessionRecord = useMemo(() => ({
+    studyCards: readSessionJson("study_cards", []),
+    knowledgeGaps: readSessionJson("knowledge_gaps", []),
+    evaluationHistory: readSessionJson("evaluation_history", []),
+  }), []);
+  const displayRecord = savedRecord || sessionRecord;
   const studyCards = useMemo(
-    () => savedRecord?.studyCards || readSessionJson("study_cards", []),
-    [savedRecord]
+    () => normalizeStudyCards(displayRecord),
+    [displayRecord]
   );
   const knowledgeGaps = useMemo(
-    () => savedRecord?.knowledgeGaps || readSessionJson("knowledge_gaps", []),
-    [savedRecord]
+    () => normalizeKnowledgeGaps(displayRecord),
+    [displayRecord]
   );
 
   if (!report) {

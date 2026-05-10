@@ -17,6 +17,49 @@ RESUME_QUESTION_SLOTS = {
 
 MAX_MIXED_RESUME_DEEP_DIVE_QUESTIONS = 4
 
+PROFESSIONAL_COURSE_KEYWORDS = [
+    "金融学",
+    "公司金融",
+    "公司理财",
+    "投资学",
+    "证券投资",
+    "金融市场",
+    "金融工程",
+    "衍生品",
+    "固定收益",
+    "计量经济",
+    "计量经济学",
+    "统计学",
+    "概率论",
+    "线性代数",
+    "微积分",
+    "会计学",
+    "财务会计",
+    "管理会计",
+    "财务管理",
+    "审计",
+    "商业银行",
+    "国际金融",
+    "宏观经济",
+    "微观经济",
+    "产业经济",
+    "python",
+    "sql",
+    "excel",
+    "机器学习",
+    "数据分析",
+    "econometrics",
+    "statistics",
+    "linear algebra",
+    "corporate finance",
+    "financial accounting",
+    "accounting",
+    "investments",
+    "investment",
+    "derivatives",
+    "fixed income",
+]
+
 
 def sanitize_question(text: str) -> str:
     if not text:
@@ -140,6 +183,23 @@ def should_force_resume_question(interview_mode: str, question_number: int, has_
     return question_number in slots
 
 
+def extract_professional_courses(resume_text: str) -> list[str]:
+    compact = str(resume_text or "").replace(" ", "").replace("\n", "")
+    lowered = compact.lower()
+    courses = []
+    for course in PROFESSIONAL_COURSE_KEYWORDS:
+        key = course.lower()
+        if key in lowered and not any(course in item or item in course for item in courses):
+            courses.append(course)
+    return courses[:8]
+
+
+def resume_question_focus(interview_mode: str, question_number: int, resume_text: str) -> str:
+    if interview_mode == "normal" and resume_text and question_number in (7, 8):
+        return "专业课抽问"
+    return "经历追问"
+
+
 def generate_next_question(
     role: str,
     topic: str,
@@ -188,6 +248,9 @@ def generate_next_question(
         )
 
     safe_jd = (jd_text or "未提供JD。请根据所选岗位方向和业务主题出题。")[:5000]
+    course_list = "、".join(extract_professional_courses(resume_text)) or (
+        "未通过关键词稳定识别。请直接从简历的教育背景、主修课程、相关课程、专业技能、项目技术栈中自行识别一门专业课或专业工具来提问。"
+    )
 
     if interview_mode == "project" and work_sample_text:
         prompt = WORK_SAMPLE_INTERVIEW_PROMPT.format(
@@ -218,6 +281,7 @@ def generate_next_question(
         return finalize_question(call_llm(prompt), role, topic, "业务模拟场景", previous_questions)
 
     if interview_mode == "mixed" and should_force_resume_question(interview_mode, question_number, bool(resume_text)):
+        question_focus = resume_question_focus(interview_mode, question_number, resume_text)
         prompt = RESUME_QUESTION_PROMPT.format(
             language_rules=LANGUAGE_RULES,
             question_scope_rules=INTERVIEW_QUESTION_SCOPE_RULES,
@@ -226,8 +290,10 @@ def generate_next_question(
             jd_text=safe_jd,
             resume_text=resume_text,
             history=history,
+            question_focus=question_focus,
+            course_list=course_list,
         )
-        return finalize_question(call_llm(prompt), role, topic, "简历深挖", previous_questions)
+        return finalize_question(call_llm(prompt), role, topic, question_focus, previous_questions)
 
     if interview_mode == "mixed":
         question_focus = mixed_question_focus(question_number, bool(resume_text))
@@ -249,6 +315,7 @@ def generate_next_question(
         return finalize_question(call_llm(prompt), role, topic, question_focus, previous_questions)
 
     if interview_mode == "normal":
+        question_focus = resume_question_focus(interview_mode, question_number, resume_text)
         prompt = RESUME_QUESTION_PROMPT.format(
             language_rules=LANGUAGE_RULES,
             question_scope_rules=INTERVIEW_QUESTION_SCOPE_RULES,
@@ -257,10 +324,13 @@ def generate_next_question(
             jd_text=safe_jd,
             resume_text=resume_text,
             history=history,
+            question_focus=question_focus,
+            course_list=course_list,
         )
-        return finalize_question(call_llm(prompt), role, topic, "简历深挖", previous_questions)
+        return finalize_question(call_llm(prompt), role, topic, question_focus, previous_questions)
 
     if should_force_resume_question(interview_mode, question_number, bool(resume_text)):
+        question_focus = resume_question_focus(interview_mode, question_number, resume_text)
         prompt = RESUME_QUESTION_PROMPT.format(
             language_rules=LANGUAGE_RULES,
             question_scope_rules=INTERVIEW_QUESTION_SCOPE_RULES,
@@ -269,8 +339,10 @@ def generate_next_question(
             jd_text=safe_jd,
             resume_text=resume_text,
             history=history,
+            question_focus=question_focus,
+            course_list=course_list,
         )
-        return finalize_question(call_llm(prompt), role, topic, "简历深挖", previous_questions)
+        return finalize_question(call_llm(prompt), role, topic, question_focus, previous_questions)
 
     prompt = QUESTION_GENERATION_PROMPT.format(
         language_rules=LANGUAGE_RULES,

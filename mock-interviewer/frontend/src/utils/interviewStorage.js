@@ -4,7 +4,6 @@ const GENERIC_CARD_TITLES = new Set([
   "结构化作答方法",
   "岗位相关核心概念",
 ]);
-const MAX_STUDY_CARDS_PER_INTERVIEW = 6;
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
@@ -55,6 +54,7 @@ function normalizeCard(card, fallbackTitle = "") {
   return {
     ...card,
     title,
+    question_index: card.question_index || card.questionIndex,
     summary: String(card.summary || card.explanation || fallback.summary).trim(),
     why_it_matters: String(card.why_it_matters || card.whyItMatters || fallback.why_it_matters).trim(),
     review_prompt: String(card.review_prompt || card.reviewPrompt || fallback.review_prompt).trim(),
@@ -66,16 +66,17 @@ export function normalizeStudyCards(record = {}) {
   const seenTitles = new Set();
   const cards = [];
 
-  const addCard = (card, fallbackTitle = "") => {
+  const addCard = (card, fallbackTitle = "", questionIndex = "") => {
     const normalized = normalizeCard(card, fallbackTitle);
     if (!normalized) return;
-    if (cards.length >= MAX_STUDY_CARDS_PER_INTERVIEW) return;
+    if (questionIndex && !normalized.question_index) normalized.question_index = questionIndex;
     const titleKey = normalizeCardKey(normalized.title);
-    if (!card && seenTitles.has(titleKey)) return;
-    const key = `${titleKey}-${normalized.summary}`;
+    const sourceKey = normalized.question_index || "";
+    if (!card && seenTitles.has(`${sourceKey}-${titleKey}`)) return;
+    const key = `${sourceKey}-${titleKey}-${normalized.summary}`;
     if (seen.has(key)) return;
     seen.add(key);
-    seenTitles.add(titleKey);
+    seenTitles.add(`${sourceKey}-${titleKey}`);
     cards.push(normalized);
   };
 
@@ -89,13 +90,13 @@ export function normalizeStudyCards(record = {}) {
 
   for (const item of evaluations) {
     for (const card of asArray(item?.study_cards || item?.studyCards)) {
-      addCard(card);
+      addCard(card, "", item?.question_index || item?.questionIndex);
     }
   }
 
   for (const gap of normalizeKnowledgeGaps(record)) {
     const title = getGapTitle(gap);
-    if (title && !isGenericTitle(title)) addCard(null, title);
+    if (title && !isGenericTitle(title)) addCard(null, title, gap.question_index || gap.questionIndex);
   }
 
   return cards;

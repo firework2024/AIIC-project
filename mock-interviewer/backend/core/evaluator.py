@@ -65,7 +65,7 @@ def normalize_study_cards(cards, fallback_gap=""):
         cards = []
 
     normalized = []
-    for card in cards[:4]:
+    for card in cards:
         if not isinstance(card, dict):
             continue
         title = str(card.get("title", "")).strip()
